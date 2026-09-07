@@ -1,7 +1,12 @@
 package io.waveio.task;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import io.waveio.execution.ExecutionConfig;
+import io.waveio.execution.ExecutionRuntime;
+import java.time.Duration;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -17,6 +22,49 @@ class TaskTest {
         task.start(null, second);
         assertEquals(1, first.value);
         assertEquals(2, second.value);
+    }
+
+    @Test
+    void composesSuccessFailureRecoveryAndFinalizers() throws Exception {
+        AtomicInteger finalizers = new AtomicInteger();
+        try (ExecutionRuntime runtime = ExecutionRuntime.create(new ExecutionConfig(4, 1, Duration.ofSeconds(1)))) {
+            int value = Task.success(2)
+                    .map(number -> number + 1)
+                    .flatMap(number -> Task.success(number * 2))
+                    .finallyRun(finalizers::incrementAndGet)
+                    .run(runtime).toCompletableFuture().get();
+            assertEquals(6, value);
+            assertEquals(1, finalizers.get());
+            int recovered = Task.<Integer>failure(new IllegalArgumentException("bad"))
+                    .recover(failure -> 7)
+                    .run(runtime).toCompletableFuture().get();
+            assertEquals(7, recovered);
+        }
+    }
+
+    @Test
+    void finalizerFailureChangesSuccessAndIsSuppressedOnFailure() throws Exception {
+        try (ExecutionRuntime runtime = ExecutionRuntime.create(new ExecutionConfig(4, 1, Duration.ofSeconds(1)))) {
+            ExecutionException successFailure = assertThrows(ExecutionException.class,
+                    () -> Task.success(1).finallyRun(() -> { throw new IllegalStateException("finalizer"); })
+                            .run(runtime).toCompletableFuture().get());
+            assertEquals("finalizer", successFailure.getCause().getMessage());
+            IllegalArgumentException source = new IllegalArgumentException("source");
+            ExecutionException failed = assertThrows(ExecutionException.class,
+                    () -> Task.<Integer>failure(source).finallyRun(() -> { throw new IllegalStateException("finalizer"); })
+                            .run(runtime).toCompletableFuture().get());
+            assertEquals(source, failed.getCause());
+            assertEquals(1, source.getSuppressed().length);
+        }
+    }
+
+    @Test
+    void timeoutFailsAnIncompleteTask() throws Exception {
+        try (ExecutionRuntime runtime = ExecutionRuntime.create(new ExecutionConfig(4, 1, Duration.ofSeconds(1)))) {
+            ExecutionException failure = assertThrows(ExecutionException.class,
+                    () -> Task.<Integer>never().timeout(Duration.ofNanos(1)).run(runtime).toCompletableFuture().get());
+            assertEquals(java.util.concurrent.TimeoutException.class, failure.getCause().getClass());
+        }
     }
 
     private static final class RecordingCallback<T> implements Task.Callback<T> {

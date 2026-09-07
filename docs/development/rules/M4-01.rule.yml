@@ -1,0 +1,12 @@
+goal: "Establish immutable transport-independent HTTP value contracts"
+keyresults:
+  - kr-1: "HTTP public types expose no Netty classes."
+  - kr-2: "Headers are immutable, case-insensitive, and preserve multiple values."
+  - kr-3: "URI parsing preserves raw path/query without automatic normalization or decoding."
+rules:
+  - id: m4-01-netty-isolation
+    name: http-contract-is-transport-independent
+    apply: "waveio-http/src/main/java"
+    level: error
+    desc:
+      - "No public HTTP type imports or exposes Netty."

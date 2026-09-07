@@ -11,6 +11,7 @@
     <module>waveio-foundation</module>
     <module>waveio-execution</module>
     <module>waveio-task</module>
+    <module>waveio-http</module>
   </modules>
 
   <properties>

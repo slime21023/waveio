@@ -65,4 +65,4 @@
 
 ## 目前 Gate 與下一步
 
-P0 與 M1 已完成：M0 重置內容、定位文件、backlog 與 ignore 規則已由單一基線 commit 固定；M1 的 wrapper、registry 與 Ubuntu／Windows CI gate 已通過。M2-01 是唯一可開始的後續工作。
+P0、M1 與 M2 已完成：M0 重置內容、定位文件、backlog 與 ignore 規則已由單一基線 commit 固定；M1 與 M2 的 Ubuntu／Windows CI gate 都已通過。M3-01 是唯一可開始的後續工作。

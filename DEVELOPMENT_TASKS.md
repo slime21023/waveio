@@ -26,7 +26,7 @@
 | M1-05 | M1-04 | 完成 | 完成 immutable snapshot 與 overlay；覆蓋非法輸入及 request scope 隔離；補 M1 文件證據。 | 本機 wrapper `verify`、`jar --describe-module` 通過；CI run 待推送後補入。 |
 | M2-01 | M1 | 完成 | 建立 `waveio-execution`／`io.waveio.execution`；固定 execution 狀態、拒絕、deadline、取消與 cleanup 契約。 | wrapper `verify` 通過；`ExecutionStateTest` 與 module inspection 通過。 |
 | M2-02 | M2-01 | 完成 | 建立可手動推進的 clock、scheduler、callback deterministic harness。 | `DeterministicSchedulerTest` 通過；不使用 sleep。 |
-| M2-03 | M2-02 | 未開始 | 實作有界 serial segment dispatcher；同 execution 不重疊、不同 execution 可並行、飽和明確拒絕。 | capacity 與 concurrency tests。 |
+| M2-03 | M2-02 | 完成 | 實作有界 serial segment dispatcher；同 execution 不重疊、不同 execution 可並行、飽和明確拒絕。 | `SerialSegmentDispatcherTest` 覆蓋 serial、parallel scheduling 與 rejection。 |
 | M2-04 | M2-03 | 未開始 | 實作 `ExecutionRuntime`、`Execution`、`ExecutionRef`、`ExecutionHandle`、`ExecutionConfig` 與 `ScopedValue` binding。 | context isolation tests。 |
 | M2-05 | M2-04 | 未開始 | 實作 first-terminal-wins、deadline、外部取消、LIFO cleanup、cleanup failure observation、晚 callback 丟棄。 | race tests，不使用任意 sleep。 |
 | M2-06 | M2-05 | 未開始 | 完成競態、容量、context isolation 與 leak-free gate；低層 config 顯式提供 capacity、parallelism、deadline。 | wrapper `verify` 與 deterministic evidence。 |

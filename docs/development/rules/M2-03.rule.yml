@@ -1,0 +1,13 @@
+goal: "Serialize segments per execution with explicit bounded rejection"
+keyresults:
+  - kr-1: "One dispatcher schedules at most one active segment."
+  - kr-2: "Separate dispatchers can schedule independently on a shared executor."
+  - kr-3: "A full per-execution queue and a rejecting executor both produce ExecutionRejectedException."
+rules:
+  - id: m2-03-serial-dispatch
+    name: segment-dispatch-is-bounded-and-serial
+    apply: "waveio-execution/src/main/java/io/waveio/execution/internal/SerialSegmentDispatcher.java"
+    level: error
+    desc:
+      - "Capacity is an explicit positive constructor argument."
+      - "Only one executor task is submitted for an execution at a time."

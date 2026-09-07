@@ -1,0 +1,13 @@
+goal: "Provide a small typed eager-instance registry"
+keyresults:
+  - kr-1: "Key equality is structural over a non-primitive Class and non-blank name."
+  - kr-2: "Registry lookup reports missing entries and distinguishes qualifiers."
+  - kr-3: "Builders reject null, duplicate, and raw-type-mismatched bindings."
+rules:
+  - id: m1-04-registry-scope
+    name: registry-stays-small-and-eager
+    apply: "waveio-foundation/src/main/java/io/waveio/registry"
+    level: error
+    desc:
+      - "The public registry only binds and retrieves eager non-null instances."
+      - "It contains no supplier, lazy binding, getAll, DI, or generic type-token API."

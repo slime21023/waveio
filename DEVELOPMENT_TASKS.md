@@ -24,7 +24,7 @@
 | M1-03 | M1-02 | 完成 | 建立 push、pull request、手動觸發 CI；Ubuntu／Windows 都執行 wrapper `verify`；僅授予 `contents: read`。 | GitHub Actions run `34100452868`：Ubuntu 與 Windows `verify` 成功。 |
 | M1-04 | M1-01 | 完成 | 實作 `Key<T>`、`Registry`、`Registry.Builder`、`MissingRegistryEntryException`；固定 `(type,name)` equality 與 eager non-null binding。 | `RegistryTest` 覆蓋 lookup、qualifier、缺值與非法 binding。 |
 | M1-05 | M1-04 | 完成 | 完成 immutable snapshot 與 overlay；覆蓋非法輸入及 request scope 隔離；補 M1 文件證據。 | 本機 wrapper `verify`、`jar --describe-module` 通過；CI run 待推送後補入。 |
-| M2-01 | M1 | 未開始 | 建立 `waveio-execution`／`io.waveio.execution`；固定 execution 狀態、拒絕、deadline、取消與 cleanup 契約。 | module tests。 |
+| M2-01 | M1 | 完成 | 建立 `waveio-execution`／`io.waveio.execution`；固定 execution 狀態、拒絕、deadline、取消與 cleanup 契約。 | wrapper `verify` 通過；`ExecutionStateTest` 與 module inspection 通過。 |
 | M2-02 | M2-01 | 未開始 | 建立可手動推進的 clock、scheduler、callback deterministic harness。 | deterministic harness tests。 |
 | M2-03 | M2-02 | 未開始 | 實作有界 serial segment dispatcher；同 execution 不重疊、不同 execution 可並行、飽和明確拒絕。 | capacity 與 concurrency tests。 |
 | M2-04 | M2-03 | 未開始 | 實作 `ExecutionRuntime`、`Execution`、`ExecutionRef`、`ExecutionHandle`、`ExecutionConfig` 與 `ScopedValue` binding。 | context isolation tests。 |

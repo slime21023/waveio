@@ -28,6 +28,20 @@ class RegistryTest {
     }
 
     @Test
+    void overlayPrefersArgumentAndAllowsNestedScopeRestoration() {
+        Key<String> key = Key.of(String.class, "value");
+        Registry root = Registry.builder().bind(key, "root").build();
+        Registry request = Registry.builder().bind(key, "request").build();
+        Registry nested = Registry.builder().bind(key, "nested").build();
+
+        Registry requestView = root.overlay(request);
+        assertEquals("request", requestView.get(key));
+        assertEquals("nested", requestView.overlay(nested).get(key));
+        assertEquals("request", requestView.get(key));
+        assertEquals("root", root.get(key));
+    }
+
+    @Test
     @SuppressWarnings({"rawtypes", "unchecked"})
     void rejectsInvalidBindingsAndKeepsSnapshotInstances() {
         Key<String> key = Key.of(String.class, "value");

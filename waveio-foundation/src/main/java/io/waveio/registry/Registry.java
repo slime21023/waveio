@@ -32,6 +32,14 @@ public final class Registry {
         return key.type().cast(value);
     }
 
+    /** Returns a snapshot in which {@code overlay} takes precedence over this registry. */
+    public Registry overlay(Registry overlay) {
+        Objects.requireNonNull(overlay, "overlay");
+        Map<Key<?>, Object> combined = new LinkedHashMap<>(entries);
+        combined.putAll(overlay.entries);
+        return new Registry(combined);
+    }
+
     /** Builder for a single immutable registry snapshot. */
     public static final class Builder {
         private final Map<Key<?>, Object> entries = new LinkedHashMap<>();

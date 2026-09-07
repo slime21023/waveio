@@ -40,8 +40,10 @@ preview API 未排入首版。核心不提供 ORM、完整 DI 容器或通用 re
 3. [Bottom-up roadmap](ROADMAP.md)：各階段的依賴、交付物與驗收門檻。
 4. [開發任務 backlog](DEVELOPMENT_TASKS.md)：可獨立審查的任務、key results 與驗證證據。
 
-目前僅完成 roadmap 的 M0；下一步為 M1 基礎契約與 Java 25 Maven 建置。
-文件中的 API 名稱及範例都是設計草案，尚無可執行的 Quick Start。
+目前已完成 M1 的 foundation：Java 25 Maven reactor、JPMS module 與型別化 registry。
+下一步為 M2 execution runtime。M1 的可重現驗證證據見
+[Foundation 驗證](docs/development/M1.md)。
+其餘文件中的 API 名稱及範例都是設計草案，尚無可執行的 Quick Start。
 版本、依賴版本及發布日期尚未設定；不沿用舊版本的測試數字或效能宣稱。
 
 ## 授權

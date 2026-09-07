@@ -23,7 +23,7 @@
 | M1-02 | M1-01 | 完成 | 加入 Wrapper、版本鎖定與 Enforcer；加入 JUnit Jupiter、Surefire、`.gitattributes`；固定 Maven 3.9.16 SHA-256。 | `./mvnw -B -ntp verify` 與 `.\mvnw.cmd -B -ntp verify` 通過。 |
 | M1-03 | M1-02 | 進行中 | 建立 push、pull request、手動觸發 CI；Ubuntu／Windows 都執行 wrapper `verify`；僅授予 `contents: read`。 | workflow static review 通過；待推送後的 CI run。 |
 | M1-04 | M1-01 | 完成 | 實作 `Key<T>`、`Registry`、`Registry.Builder`、`MissingRegistryEntryException`；固定 `(type,name)` equality 與 eager non-null binding。 | `RegistryTest` 覆蓋 lookup、qualifier、缺值與非法 binding。 |
-| M1-05 | M1-04 | 未開始 | 完成 immutable snapshot 與 overlay；覆蓋非法輸入及 request scope 隔離；補 M1 文件證據。 | wrapper `verify`、module 描述、CI。 |
+| M1-05 | M1-04 | 完成 | 完成 immutable snapshot 與 overlay；覆蓋非法輸入及 request scope 隔離；補 M1 文件證據。 | 本機 wrapper `verify`、`jar --describe-module` 通過；CI run 待推送後補入。 |
 | M2-01 | M1 | 未開始 | 建立 `waveio-execution`／`io.waveio.execution`；固定 execution 狀態、拒絕、deadline、取消與 cleanup 契約。 | module tests。 |
 | M2-02 | M2-01 | 未開始 | 建立可手動推進的 clock、scheduler、callback deterministic harness。 | deterministic harness tests。 |
 | M2-03 | M2-02 | 未開始 | 實作有界 serial segment dispatcher；同 execution 不重疊、不同 execution 可並行、飽和明確拒絕。 | capacity 與 concurrency tests。 |

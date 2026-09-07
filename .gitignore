@@ -16,3 +16,6 @@ out/
 Thumbs.db
 *.log
 *.tmp
+
+# Maven Wrapper distribution cache
+.mvn/wrapper/dists/

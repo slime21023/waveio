@@ -20,7 +20,7 @@
 | P0-01 | 無 | 完成 | 建立本文件（唯一追蹤來源）；列出 M1–M7 的工作、依賴與 gate；README 與 ROADMAP 都連到本文件。 | `git diff --check`；README／ROADMAP 的相對連結。 |
 | P0-02 | P0-01 | 完成 | 將 M0 重置、三份定位文件、本文件與 `.gitignore` 以單一 commit 固定；確認工作樹乾淨；確認無舊模組或建置設定。 | Baseline commit；`git status --short`；`rg --files`。 |
 | M1-01 | P0 | 完成 | 建立根 Maven reactor；建立 `waveio-foundation` artifact；建立僅 exports `io.waveio.registry` 的 `io.waveio.foundation` module。 | `./mvnw -B -ntp verify`、`.\mvnw.cmd -B -ntp verify`；`jar --describe-module`。 |
-| M1-02 | M1-01 | 未開始 | 加入 Wrapper、版本鎖定與 Enforcer；加入 JUnit Jupiter、Surefire、`.gitattributes`；固定 Maven 3.9.16 SHA-256。 | Linux 與 Windows wrapper `verify`。 |
+| M1-02 | M1-01 | 完成 | 加入 Wrapper、版本鎖定與 Enforcer；加入 JUnit Jupiter、Surefire、`.gitattributes`；固定 Maven 3.9.16 SHA-256。 | `./mvnw -B -ntp verify` 與 `.\mvnw.cmd -B -ntp verify` 通過。 |
 | M1-03 | M1-02 | 未開始 | 建立 push、pull request、手動觸發 CI；Ubuntu／Windows 都執行 wrapper `verify`；僅授予 `contents: read`。 | workflow review 與 CI run。 |
 | M1-04 | M1-01 | 未開始 | 實作 `Key<T>`、`Registry`、`Registry.Builder`、`MissingRegistryEntryException`；固定 `(type,name)` equality 與 eager non-null binding。 | registry unit tests。 |
 | M1-05 | M1-04 | 未開始 | 完成 immutable snapshot 與 overlay；覆蓋非法輸入及 request scope 隔離；補 M1 文件證據。 | wrapper `verify`、module 描述、CI。 |

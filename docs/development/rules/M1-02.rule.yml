@@ -1,0 +1,13 @@
+goal: "Make the Java 25 foundation build reproducible without a global Maven installation"
+keyresults:
+  - kr-1: "Only-script wrappers run Maven 3.9.16 on Linux and Windows."
+  - kr-2: "The Maven binary distribution is pinned by SHA-256."
+  - kr-3: "Enforcer, JUnit Jupiter, Surefire, UTF-8, and -Xlint:all -Werror are configured."
+rules:
+  - id: m1-02-wrapper-pin
+    name: wrapper-pins-maven-distribution
+    apply: ".mvn/wrapper/maven-wrapper.properties"
+    level: error
+    desc:
+      - "The distribution URL names Maven 3.9.16."
+      - "A SHA-256 checksum is configured."

@@ -34,7 +34,7 @@
 | M3-02 | M3-01 | 完成 | 實作 `defer`、成功／失敗、`map`、`flatMap`、`recover`、`timeout`、finalizer、terminal runner。 | `TaskTest` 覆蓋 lazy、composition、timeout 與 finalizer failure contract。 |
 | M3-03 | M3-02 | 完成 | 實作 `CompletionStage` import/export；外部 completion 回到 execution。 | `TaskTest` 驗證 imported stage completion re-enters execution。 |
 | M3-04 | M3-02 | 完成 | 實作 virtual-thread blocking bridge，具 explicit concurrent slots 與 waiting queue。 | `TaskTest` 覆蓋 virtual-thread result re-entry 與 saturation rejection。 |
-| M3-05 | M3-02 | 未開始 | 實作最小 JDK Flow bridge、demand/cancellation probes、bounded byte-buffer collector。 | backpressure tests。 |
+| M3-05 | M3-02 | 完成 | 實作最小 JDK Flow bridge、demand/cancellation probes、bounded byte-buffer collector。 | `ByteBufferCollectorTest` 覆蓋 one-at-a-time demand 與 overflow cancellation。 |
 | M3-06 | M3-03, M3-04, M3-05 | 未開始 | 完成 cancellation、timeout、context、backpressure gate；不建 reactive operator framework。 | wrapper `verify`。 |
 | M4-01 | M3 | 未開始 | 建立 `waveio-http`／`io.waveio.http`；實作 immutable HTTP value types。 | value-type tests。 |
 | M4-02 | M4-01 | 未開始 | 實作 Flow-based single-consumption `Body` 與 bounded collector。 | consumption/limit tests。 |

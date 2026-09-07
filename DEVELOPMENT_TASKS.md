@@ -30,7 +30,7 @@
 | M2-04 | M2-03 | 完成 | 實作 `ExecutionRuntime`、`Execution`、`ExecutionRef`、`ExecutionHandle`、`ExecutionConfig` 與 `ScopedValue` binding。 | `ExecutionRuntimeTest` 覆蓋 managed context 與 mandatory config。 |
 | M2-05 | M2-04 | 完成 | 實作 first-terminal-wins、deadline、外部取消、LIFO cleanup、cleanup failure observation、晚 callback 丟棄。 | `ExecutionTerminationTest` 覆蓋 terminal arbitration、deadline、cleanup；未使用 sleep。 |
 | M2-06 | M2-05 | 完成 | 完成競態、容量、context isolation 與 leak-free gate；低層 config 顯式提供 capacity、parallelism、deadline。 | wrapper `verify` 14 tests 通過；latch-based context isolation 與 cleanup gate。 |
-| M3-01 | M2 | 未開始 | 建立 `waveio-task`／`io.waveio.task` 與延遲 `Task<T>` graph。 | module tests。 |
+| M3-01 | M2 | 完成 | 建立 `waveio-task`／`io.waveio.task` 與延遲 `Task<T>` graph。 | `TaskTest` 驗證 defer laziness 與 independent start。 |
 | M3-02 | M3-01 | 未開始 | 實作 `defer`、成功／失敗、`map`、`flatMap`、`recover`、`timeout`、finalizer、terminal runner。 | lazy、finalizer tests。 |
 | M3-03 | M3-02 | 未開始 | 實作 `CompletionStage` import/export；外部 completion 回到 execution。 | context tests。 |
 | M3-04 | M3-02 | 未開始 | 實作 virtual-thread blocking bridge，具 explicit concurrent slots 與 waiting queue。 | rejection/cancellation tests。 |

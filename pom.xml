@@ -10,6 +10,7 @@
   <modules>
     <module>waveio-foundation</module>
     <module>waveio-execution</module>
+    <module>waveio-task</module>
   </modules>
 
   <properties>

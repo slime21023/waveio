@@ -1,0 +1,12 @@
+goal: "Establish a JDK-only lazy Task graph module"
+keyresults:
+  - kr-1: "waveio-task is a named module that depends only on waveio-execution and the JDK."
+  - kr-2: "Constructing a deferred Task performs no work."
+  - kr-3: "Each Task start evaluates its deferred source independently."
+rules:
+  - id: m3-01-lazy-task
+    name: task-creation-is-lazy
+    apply: "waveio-task/src/main/java/io/waveio/task/Task.java"
+    level: error
+    desc:
+      - "defer invokes its supplier only from the internal start path."

@@ -8,6 +8,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.Callable;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -33,6 +34,13 @@ public final class Task<T> {
     /** Creates a task that remains incomplete until its containing execution terminates. */
     public static <T> Task<T> never() {
         return new Task<>((execution, callback) -> { });
+    }
+
+    /** Creates a task that runs blocking work in the supplied bounded virtual-thread runtime. */
+    public static <T> Task<T> blocking(BlockingRuntime runtime, Callable<? extends T> work) {
+        Objects.requireNonNull(runtime, "runtime");
+        Objects.requireNonNull(work, "work");
+        return new Task<>((execution, callback) -> runtime.submit(execution, work, callback));
     }
 
     /** Imports an existing stage; the source may already have started before this task runs. */

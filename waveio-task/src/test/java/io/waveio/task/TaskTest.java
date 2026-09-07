@@ -8,6 +8,8 @@ import io.waveio.execution.ExecutionRuntime;
 import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -75,6 +77,30 @@ class TaskTest {
             var result = Task.fromStage(source).map(value -> value + 1).toStage(runtime).toCompletableFuture();
             source.complete(4);
             assertEquals(5, result.get());
+        }
+    }
+
+    @Test
+    void blockingRuntimeBoundsSlotsAndReturnsResultToExecution() throws Exception {
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        try (BlockingRuntime blocking = new BlockingRuntime(new BlockingConfig(1, 0));
+                ExecutionRuntime runtime = ExecutionRuntime.create(new ExecutionConfig(4, 2, Duration.ofSeconds(2)))) {
+            var first = Task.blocking(blocking, () -> {
+                started.countDown();
+                if (!release.await(1, TimeUnit.SECONDS)) {
+                    throw new AssertionError("blocking test coordination timed out");
+                }
+                return 1;
+            }).run(runtime).toCompletableFuture();
+            if (!started.await(1, TimeUnit.SECONDS)) {
+                throw new AssertionError("blocking work did not start");
+            }
+            ExecutionException rejected = assertThrows(ExecutionException.class,
+                    () -> Task.blocking(blocking, () -> 2).run(runtime).toCompletableFuture().get());
+            assertEquals("blocking runtime capacity exhausted", rejected.getCause().getMessage());
+            release.countDown();
+            assertEquals(1, first.get());
         }
     }
 

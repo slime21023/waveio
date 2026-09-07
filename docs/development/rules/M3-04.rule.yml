@@ -1,0 +1,13 @@
+goal: "Bridge bounded blocking work through virtual threads"
+keyresults:
+  - kr-1: "BlockingConfig requires explicit concurrent slots and waiting queue capacity."
+  - kr-2: "Blocking work runs on virtual threads and delivers completion through ExecutionRef."
+  - kr-3: "Runtime-owned blocking work is interrupted on execution cleanup and rejects saturation explicitly."
+rules:
+  - id: m3-04-bounded-blocking
+    name: blocking-runtime-has-explicit-bounds
+    apply: "waveio-task/src/main/java/io/waveio/task/BlockingRuntime.java"
+    level: error
+    desc:
+      - "The executor uses virtual threads and a bounded queue."
+      - "Rejected work is exposed as ExecutionRejectedException."

@@ -16,8 +16,8 @@
 | M0 | 無 | 完成 | 重置與重新定位 |
 | M1 | M0 | 完成 | 基礎契約與建置 |
 | M2 | M1 | 完成 | Execution runtime |
-| M3 | M2 | 進行中（待 CI） | Task 與串流橋接 |
-| M4 | M3 | 未開始 | HTTP 與 handler 組合 |
+| M3 | M2 | 完成 | Task 與串流橋接 |
+| M4 | M3 | 進行中 | HTTP 與 handler 組合 |
 | M5 | M4 | 未開始 | Netty HTTP server |
 | M6 | M5 | 未開始 | 應用開發體驗 |
 | M7 | M6 | 未開始 | 首版發布門檻 |

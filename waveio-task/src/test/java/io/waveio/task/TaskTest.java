@@ -71,6 +71,15 @@ class TaskTest {
     }
 
     @Test
+    void taskTimeoutCannotExtendTheParentExecutionDeadline() throws Exception {
+        try (ExecutionRuntime runtime = ExecutionRuntime.create(new ExecutionConfig(4, 1, Duration.ofNanos(1)))) {
+            ExecutionException failure = assertThrows(ExecutionException.class,
+                    () -> Task.<Integer>never().timeout(Duration.ofSeconds(1)).run(runtime).toCompletableFuture().get());
+            assertEquals(io.waveio.execution.ExecutionDeadlineExceededException.class, failure.getCause().getClass());
+        }
+    }
+
+    @Test
     void importedCompletionStageReturnsThroughManagedExecution() throws Exception {
         CompletableFuture<Integer> source = new CompletableFuture<>();
         try (ExecutionRuntime runtime = ExecutionRuntime.create(new ExecutionConfig(4, 1, Duration.ofSeconds(1)))) {

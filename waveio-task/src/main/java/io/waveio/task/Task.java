@@ -1,13 +1,18 @@
 package io.waveio.task;
 
 import io.waveio.execution.Execution;
+import io.waveio.execution.ExecutionCancelledException;
+import io.waveio.execution.ExecutionDeadlineExceededException;
+import io.waveio.execution.ExecutionHandle;
 import io.waveio.execution.ExecutionRuntime;
+import io.waveio.execution.ExecutionState;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -173,7 +178,8 @@ public final class Task<T> {
     public CompletionStage<T> run(ExecutionRuntime runtime) {
         Objects.requireNonNull(runtime, "runtime");
         CompletableFuture<T> result = new CompletableFuture<>();
-        runtime.start(execution -> start(execution, new Callback<>() {
+        AtomicReference<Throwable> deliveredFailure = new AtomicReference<>();
+        ExecutionHandle handle = runtime.start(execution -> start(execution, new Callback<>() {
             @Override
             public void succeed(T value) {
                 if (execution.complete()) {
@@ -183,11 +189,26 @@ public final class Task<T> {
 
             @Override
             public void fail(Throwable failure) {
+                deliveredFailure.set(failure);
                 if (execution.fail(failure)) {
                     result.completeExceptionally(failure);
                 }
             }
         }));
+        handle.completion().thenAccept(state -> {
+            if (result.isDone()) {
+                return;
+            }
+            if (state == ExecutionState.TIMED_OUT) {
+                result.completeExceptionally(new ExecutionDeadlineExceededException());
+            } else if (state == ExecutionState.CANCELLED) {
+                result.completeExceptionally(new ExecutionCancelledException());
+            } else if (state == ExecutionState.FAILED) {
+                Throwable failure = deliveredFailure.get();
+                result.completeExceptionally(failure != null ? failure
+                        : new IllegalStateException("execution failed before task delivered a failure"));
+            }
+        });
         return result;
     }
 

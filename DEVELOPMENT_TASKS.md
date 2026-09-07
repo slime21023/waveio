@@ -35,7 +35,7 @@
 | M3-03 | M3-02 | 完成 | 實作 `CompletionStage` import/export；外部 completion 回到 execution。 | `TaskTest` 驗證 imported stage completion re-enters execution。 |
 | M3-04 | M3-02 | 完成 | 實作 virtual-thread blocking bridge，具 explicit concurrent slots 與 waiting queue。 | `TaskTest` 覆蓋 virtual-thread result re-entry 與 saturation rejection。 |
 | M3-05 | M3-02 | 完成 | 實作最小 JDK Flow bridge、demand/cancellation probes、bounded byte-buffer collector。 | `ByteBufferCollectorTest` 覆蓋 one-at-a-time demand 與 overflow cancellation。 |
-| M3-06 | M3-03, M3-04, M3-05 | 未開始 | 完成 cancellation、timeout、context、backpressure gate；不建 reactive operator framework。 | wrapper `verify`。 |
+| M3-06 | M3-03, M3-04, M3-05 | 完成 | 完成 cancellation、timeout、context、backpressure gate；不建 reactive operator framework。 | Task／Flow tests 覆蓋 deadline、context re-entry、blocking rejection、demand 與 overflow。 |
 | M4-01 | M3 | 未開始 | 建立 `waveio-http`／`io.waveio.http`；實作 immutable HTTP value types。 | value-type tests。 |
 | M4-02 | M4-01 | 未開始 | 實作 Flow-based single-consumption `Body` 與 bounded collector。 | consumption/limit tests。 |
 | M4-03 | M4-02 | 未開始 | 實作 `Handler`、`Context`、`Chain`、local registry overlay、response transaction。 | handler-flow tests。 |
@@ -65,4 +65,4 @@
 
 ## 目前 Gate 與下一步
 
-P0、M1 與 M2 已完成：M0 重置內容、定位文件、backlog 與 ignore 規則已由單一基線 commit 固定；M1 與 M2 的 Ubuntu／Windows CI gate 都已通過。M3-01 是唯一可開始的後續工作。
+P0、M1 與 M2 已完成：M0 重置內容、定位文件、backlog 與 ignore 規則已由單一基線 commit 固定；M3 已完成本機 gate，正待最後一輪 Ubuntu／Windows CI 證據。CI 通過後，M4-01 是唯一可開始的後續工作。

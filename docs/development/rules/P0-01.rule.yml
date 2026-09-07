@@ -1,0 +1,14 @@
+p0-01-backlog-exists:
+  name: Development backlog is the in-repository tracking source
+  apply: DEVELOPMENT_TASKS.md
+  level: error
+  desc:
+    - The file records P0 and M1 through M7 task IDs, dependencies, status, goals, key results, and verification evidence.
+
+p0-01-public-links:
+  name: Public planning documents link to the development backlog
+  apply: README.md,ROADMAP.md
+  level: error
+  desc:
+    - README.md and ROADMAP.md link to DEVELOPMENT_TASKS.md.
+

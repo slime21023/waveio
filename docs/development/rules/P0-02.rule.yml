@@ -1,0 +1,14 @@
+p0-02-no-legacy-build:
+  name: Reset baseline contains no legacy modules or build configuration
+  apply: .
+  level: error
+  desc:
+    - The reset commit removes the previous waveio-core module and root Maven build files.
+
+p0-02-clean-commit:
+  name: Reset baseline is isolated
+  apply: .
+  level: error
+  desc:
+    - The M0 reset, positioning documents, backlog, and ignore rules are committed without M1 implementation.
+

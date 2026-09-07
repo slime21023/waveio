@@ -1,32 +1,18 @@
-# Build & Output Directories
+# Build output
 target/
-**/target/
 build/
-**/build/
 out/
-**/out/
 
-# IDE & Editor Configurations
+# Local IDE settings
 .idea/
+.vscode/
 *.iml
 .classpath
 .project
 .settings/
-.vscode/
-*.ipr
-*.iws
 
-# OS & Temporary Files
+# OS and temporary files
 .DS_Store
 Thumbs.db
 *.log
 *.tmp
-*.bak
-
-# Internal Agent Notes & Configs
-findings.md
-progress.md
-task_plan.md
-skills-lock.json
-.agent/
-.claude/

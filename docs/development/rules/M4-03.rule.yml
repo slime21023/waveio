@@ -1,0 +1,12 @@
+goal: "Establish handler control flow, local registry context, and one-response transactions"
+keyresults:
+  - kr-1: "Handler returns Task<Void> and receives request-scoped Context."
+  - kr-2: "Context exposes respond, next, and insert as mutually exclusive control-flow choices."
+  - kr-3: "ResponseTransaction rejects a second commit."
+rules:
+  - id: m4-03-one-response
+    name: response-transaction-is-single-commit
+    apply: "waveio-http/src/main/java/io/waveio/http/ResponseTransaction.java"
+    level: error
+    desc:
+      - "Atomic state permits exactly one response commit."

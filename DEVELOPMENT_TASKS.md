@@ -38,7 +38,7 @@
 | M3-06 | M3-03, M3-04, M3-05 | 完成 | 完成 cancellation、timeout、context、backpressure gate；不建 reactive operator framework。 | Task／Flow tests 覆蓋 deadline、context re-entry、blocking rejection、demand 與 overflow。 |
 | M4-01 | M3 | 完成 | 建立 `waveio-http`／`io.waveio.http`；實作 immutable HTTP value types。 | `HttpValueTest` 與 HTTP dependency reactor tests 通過。 |
 | M4-02 | M4-01 | 完成 | 實作 Flow-based single-consumption `Body` 與 bounded collector。 | `BodyTest` 驗證 single consumption；bounded collection 由 Flow tests 驗證。 |
-| M4-03 | M4-02 | 未開始 | 實作 `Handler`、`Context`、`Chain`、local registry overlay、response transaction。 | handler-flow tests。 |
+| M4-03 | M4-02 | 完成 | 實作 `Handler`、`Context`、`Chain`、local registry overlay、response transaction。 | `ResponseTransactionTest` 與 HTTP dependency reactor tests 通過。 |
 | M4-04 | M4-03 | 未開始 | 實作 method/path router、parameters、404、405、`Allow`、HEAD 與 error flow；精確 segment path 規則。 | routing tests。 |
 | M4-05 | M4-04 | 未開始 | 建立 memory-only handler fixture，以正式 execution、Task、Chain 驗證端到端。 | fixture integration tests。 |
 | M4-06 | M4-05 | 未開始 | 完成 public API 與 Netty-isolation gate；回應 commit 後不得再變更或第二次回應。 | wrapper `verify`。 |

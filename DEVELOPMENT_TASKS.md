@@ -37,7 +37,7 @@
 | M3-05 | M3-02 | 完成 | 實作最小 JDK Flow bridge、demand/cancellation probes、bounded byte-buffer collector。 | `ByteBufferCollectorTest` 覆蓋 one-at-a-time demand 與 overflow cancellation。 |
 | M3-06 | M3-03, M3-04, M3-05 | 完成 | 完成 cancellation、timeout、context、backpressure gate；不建 reactive operator framework。 | Task／Flow tests 覆蓋 deadline、context re-entry、blocking rejection、demand 與 overflow。 |
 | M4-01 | M3 | 完成 | 建立 `waveio-http`／`io.waveio.http`；實作 immutable HTTP value types。 | `HttpValueTest` 與 HTTP dependency reactor tests 通過。 |
-| M4-02 | M4-01 | 未開始 | 實作 Flow-based single-consumption `Body` 與 bounded collector。 | consumption/limit tests。 |
+| M4-02 | M4-01 | 完成 | 實作 Flow-based single-consumption `Body` 與 bounded collector。 | `BodyTest` 驗證 single consumption；bounded collection 由 Flow tests 驗證。 |
 | M4-03 | M4-02 | 未開始 | 實作 `Handler`、`Context`、`Chain`、local registry overlay、response transaction。 | handler-flow tests。 |
 | M4-04 | M4-03 | 未開始 | 實作 method/path router、parameters、404、405、`Allow`、HEAD 與 error flow；精確 segment path 規則。 | routing tests。 |
 | M4-05 | M4-04 | 未開始 | 建立 memory-only handler fixture，以正式 execution、Task、Chain 驗證端到端。 | fixture integration tests。 |

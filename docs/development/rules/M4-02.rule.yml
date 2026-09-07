@@ -1,0 +1,12 @@
+goal: "Make HTTP request and response bodies single-consumption bounded streams"
+keyresults:
+  - kr-1: "A Body forwards only its first subscription to the source publisher."
+  - kr-2: "Buffered collection requires an explicit byte maximum."
+  - kr-3: "A second consumer receives an explicit failure."
+rules:
+  - id: m4-02-single-consumption
+    name: body-allows-one-subscriber
+    apply: "waveio-http/src/main/java/io/waveio/http/Body.java"
+    level: error
+    desc:
+      - "Atomic consumption state prevents a second source subscription."

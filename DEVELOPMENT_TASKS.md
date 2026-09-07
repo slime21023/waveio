@@ -28,7 +28,7 @@
 | M2-02 | M2-01 | 完成 | 建立可手動推進的 clock、scheduler、callback deterministic harness。 | `DeterministicSchedulerTest` 通過；不使用 sleep。 |
 | M2-03 | M2-02 | 完成 | 實作有界 serial segment dispatcher；同 execution 不重疊、不同 execution 可並行、飽和明確拒絕。 | `SerialSegmentDispatcherTest` 覆蓋 serial、parallel scheduling 與 rejection。 |
 | M2-04 | M2-03 | 完成 | 實作 `ExecutionRuntime`、`Execution`、`ExecutionRef`、`ExecutionHandle`、`ExecutionConfig` 與 `ScopedValue` binding。 | `ExecutionRuntimeTest` 覆蓋 managed context 與 mandatory config。 |
-| M2-05 | M2-04 | 未開始 | 實作 first-terminal-wins、deadline、外部取消、LIFO cleanup、cleanup failure observation、晚 callback 丟棄。 | race tests，不使用任意 sleep。 |
+| M2-05 | M2-04 | 完成 | 實作 first-terminal-wins、deadline、外部取消、LIFO cleanup、cleanup failure observation、晚 callback 丟棄。 | `ExecutionTerminationTest` 覆蓋 terminal arbitration、deadline、cleanup；未使用 sleep。 |
 | M2-06 | M2-05 | 未開始 | 完成競態、容量、context isolation 與 leak-free gate；低層 config 顯式提供 capacity、parallelism、deadline。 | wrapper `verify` 與 deterministic evidence。 |
 | M3-01 | M2 | 未開始 | 建立 `waveio-task`／`io.waveio.task` 與延遲 `Task<T>` graph。 | module tests。 |
 | M3-02 | M3-01 | 未開始 | 實作 `defer`、成功／失敗、`map`、`flatMap`、`recover`、`timeout`、finalizer、terminal runner。 | lazy、finalizer tests。 |

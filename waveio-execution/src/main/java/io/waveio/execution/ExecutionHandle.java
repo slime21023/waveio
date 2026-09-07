@@ -25,4 +25,9 @@ public final class ExecutionHandle {
     public CompletionStage<ExecutionState> completion() {
         return execution.completion();
     }
+
+    /** Requests external cancellation; the first terminal signal wins. */
+    public boolean cancel() {
+        return execution.cancel();
+    }
 }

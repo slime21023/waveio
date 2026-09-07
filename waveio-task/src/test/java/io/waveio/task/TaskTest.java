@@ -7,6 +7,7 @@ import io.waveio.execution.ExecutionConfig;
 import io.waveio.execution.ExecutionRuntime;
 import java.time.Duration;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -64,6 +65,16 @@ class TaskTest {
             ExecutionException failure = assertThrows(ExecutionException.class,
                     () -> Task.<Integer>never().timeout(Duration.ofNanos(1)).run(runtime).toCompletableFuture().get());
             assertEquals(java.util.concurrent.TimeoutException.class, failure.getCause().getClass());
+        }
+    }
+
+    @Test
+    void importedCompletionStageReturnsThroughManagedExecution() throws Exception {
+        CompletableFuture<Integer> source = new CompletableFuture<>();
+        try (ExecutionRuntime runtime = ExecutionRuntime.create(new ExecutionConfig(4, 1, Duration.ofSeconds(1)))) {
+            var result = Task.fromStage(source).map(value -> value + 1).toStage(runtime).toCompletableFuture();
+            source.complete(4);
+            assertEquals(5, result.get());
         }
     }
 

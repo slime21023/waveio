@@ -35,6 +35,18 @@ public final class Task<T> {
         return new Task<>((execution, callback) -> { });
     }
 
+    /** Imports an existing stage; the source may already have started before this task runs. */
+    public static <T> Task<T> fromStage(CompletionStage<? extends T> stage) {
+        Objects.requireNonNull(stage, "stage");
+        return new Task<>((execution, callback) -> stage.whenComplete((value, failure) -> execution.ref().execute(() -> {
+            if (failure == null) {
+                callback.succeed(value);
+            } else {
+                callback.fail(failure);
+            }
+        })));
+    }
+
     /** Defers creation of a task until each independent start. */
     public static <T> Task<T> defer(Supplier<? extends Task<T>> supplier) {
         Objects.requireNonNull(supplier, "supplier");
@@ -169,6 +181,11 @@ public final class Task<T> {
             }
         }));
         return result;
+    }
+
+    /** Exports this task as a stage started in a new managed execution. */
+    public CompletionStage<T> toStage(ExecutionRuntime runtime) {
+        return run(runtime);
     }
 
     void start(Execution execution, Callback<? super T> callback) {

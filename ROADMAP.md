@@ -14,8 +14,8 @@
 | 階段 | 前置依賴 | 狀態 | 交付主題 |
 |---|---|---|---|
 | M0 | 無 | 完成 | 重置與重新定位 |
-| M1 | M0 | 進行中（待 CI） | 基礎契約與建置 |
-| M2 | M1 | 未開始 | Execution runtime |
+| M1 | M0 | 完成 | 基礎契約與建置 |
+| M2 | M1 | 進行中 | Execution runtime |
 | M3 | M2 | 未開始 | Task 與串流橋接 |
 | M4 | M3 | 未開始 | HTTP 與 handler 組合 |
 | M5 | M4 | 未開始 | Netty HTTP server |

@@ -21,7 +21,7 @@
 | P0-02 | P0-01 | 完成 | 將 M0 重置、三份定位文件、本文件與 `.gitignore` 以單一 commit 固定；確認工作樹乾淨；確認無舊模組或建置設定。 | Baseline commit；`git status --short`；`rg --files`。 |
 | M1-01 | P0 | 完成 | 建立根 Maven reactor；建立 `waveio-foundation` artifact；建立僅 exports `io.waveio.registry` 的 `io.waveio.foundation` module。 | `./mvnw -B -ntp verify`、`.\mvnw.cmd -B -ntp verify`；`jar --describe-module`。 |
 | M1-02 | M1-01 | 完成 | 加入 Wrapper、版本鎖定與 Enforcer；加入 JUnit Jupiter、Surefire、`.gitattributes`；固定 Maven 3.9.16 SHA-256。 | `./mvnw -B -ntp verify` 與 `.\mvnw.cmd -B -ntp verify` 通過。 |
-| M1-03 | M1-02 | 進行中 | 建立 push、pull request、手動觸發 CI；Ubuntu／Windows 都執行 wrapper `verify`；僅授予 `contents: read`。 | workflow static review 通過；待推送後的 CI run。 |
+| M1-03 | M1-02 | 完成 | 建立 push、pull request、手動觸發 CI；Ubuntu／Windows 都執行 wrapper `verify`；僅授予 `contents: read`。 | GitHub Actions run `34100452868`：Ubuntu 與 Windows `verify` 成功。 |
 | M1-04 | M1-01 | 完成 | 實作 `Key<T>`、`Registry`、`Registry.Builder`、`MissingRegistryEntryException`；固定 `(type,name)` equality 與 eager non-null binding。 | `RegistryTest` 覆蓋 lookup、qualifier、缺值與非法 binding。 |
 | M1-05 | M1-04 | 完成 | 完成 immutable snapshot 與 overlay；覆蓋非法輸入及 request scope 隔離；補 M1 文件證據。 | 本機 wrapper `verify`、`jar --describe-module` 通過；CI run 待推送後補入。 |
 | M2-01 | M1 | 未開始 | 建立 `waveio-execution`／`io.waveio.execution`；固定 execution 狀態、拒絕、deadline、取消與 cleanup 契約。 | module tests。 |
@@ -65,4 +65,4 @@
 
 ## 目前 Gate 與下一步
 
-P0 已完成：M0 重置內容、定位文件、backlog 與 ignore 規則已由單一基線 commit 固定。M1-01 是唯一可開始的後續工作。
+P0 與 M1 已完成：M0 重置內容、定位文件、backlog 與 ignore 規則已由單一基線 commit 固定；M1 的 wrapper、registry 與 Ubuntu／Windows CI gate 已通過。M2-01 是唯一可開始的後續工作。

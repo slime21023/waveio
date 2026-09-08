@@ -3,7 +3,7 @@
 WaveIO 是以 **Java 25+** 開發、承接 **Ratpack 設計理念**的輕量 HTTP 應用框架。
 面向希望以明確、可組合的非同步 API 建立 HTTP 服務的 Java 後端開發者。
 
-目前已完成 Java 25 Maven reactor、foundation、execution、Task／Flow、HTTP／handler、Netty
+目前已完成單一 `io.waveio:waveio` Java 25 artifact，內含 execution、Task／Flow、HTTP／handler、Netty
 HTTP/1.1 transport、public server facade 與 embedded testkit；發布套件仍待 M7 驗證。舊實作、
 測試、設計與封存已移除，不保留舊 WaveIO 或 Ratpack API 相容層。
 

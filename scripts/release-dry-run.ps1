@@ -9,7 +9,7 @@ try {
     $manifest = Join-Path $distribution "SHA256SUMS"
     if (-not (Test-Path -LiteralPath $manifest)) { throw "checksum manifest is missing" }
     $files = Get-ChildItem -LiteralPath (Join-Path $distribution "artifacts") -File
-    if ($files.Count -ne 21) { throw "expected 21 binary/sources/Javadoc JAR attachments, found $($files.Count)" }
+    if ($files.Count -ne 3) { throw "expected 3 binary/sources/Javadoc JAR attachments, found $($files.Count)" }
     $attachments = Join-Path $root "target/release-dry-run/ATTACHMENTS.md"
     New-Item -ItemType Directory -Path (Split-Path -Parent $attachments) -Force | Out-Null
     @("# Release dry-run attachments", "", "- Version: $Version", "- JAR attachments: $($files.Count)", "- External publication: not performed", "", "## Files") +

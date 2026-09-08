@@ -1,14 +1,6 @@
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
-$expected = @{
-    "waveio-foundation/src/main/java/module-info.java" = @("exports io.waveio.registry;")
-    "waveio-execution/src/main/java/module-info.java" = @("exports io.waveio.execution;")
-    "waveio-task/src/main/java/module-info.java" = @("exports io.waveio.task;")
-    "waveio-http/src/main/java/module-info.java" = @("exports io.waveio.http;")
-    "waveio-server/src/main/java/module-info.java" = @("exports io.waveio.server;")
-    "waveio-testkit/src/main/java/module-info.java" = @("exports io.waveio.testkit;")
-    "waveio-netty/src/main/java/module-info.java" = @("exports io.waveio.netty to io.waveio.server;")
-}
+$expected = @{ "waveio/src/main/java/module-info.java" = @("exports io.waveio.registry;", "exports io.waveio.execution;", "exports io.waveio.task;", "exports io.waveio.http;", "exports io.waveio.server;", "exports io.waveio.testkit;") }
 foreach ($entry in $expected.GetEnumerator()) {
     $actual = Get-Content -LiteralPath (Join-Path $root $entry.Key) | Where-Object { $_.TrimStart().StartsWith("exports ") } | ForEach-Object { $_.Trim() }
     if (@(Compare-Object $entry.Value $actual).Count -ne 0) { throw "JPMS export baseline mismatch: $($entry.Key)" }

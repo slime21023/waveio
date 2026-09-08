@@ -20,7 +20,7 @@ WaveIO 不依賴 Ratpack 套件，也不沿用其完整 Promise API。
 
 ## 分層與依賴
 
-以下是責任層，不是本階段要建立的空 Maven 模組。
+以下是單一 `io.waveio` artifact 內的責任 package，不是各自發布的 Maven 模組。
 
 | 責任層 | 負責內容 | 可依賴的內部契約 |
 |---|---|---|

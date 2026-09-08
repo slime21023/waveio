@@ -1,3 +1,3 @@
 module io.waveio.consumer.verification {
-    requires io.waveio.server;
+    requires io.waveio;
 }

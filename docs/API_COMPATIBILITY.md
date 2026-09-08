@@ -4,16 +4,16 @@
 屬於相容性承諾；未 export package、package-private 型別及所有 `io.waveio.netty` 型別都不是一般
 使用者 API。
 
-| Module | Exported package | 對象 |
+| Single JPMS module | Exported package | 對象 |
 |---|---|---|
-| `io.waveio.foundation` | `io.waveio.registry` | application registry |
-| `io.waveio.execution` | `io.waveio.execution` | managed execution runtime |
-| `io.waveio.task` | `io.waveio.task` | Task、blocking、Flow bridge |
-| `io.waveio.http` | `io.waveio.http` | HTTP values、handler、routing、memory fixture |
-| `io.waveio.server` | `io.waveio.server` | server facade、lifecycle、rendering、observation |
-| `io.waveio.testkit` | `io.waveio.testkit` | embedded public-facade fixture |
+| `io.waveio` | `io.waveio.registry` | application registry |
+| `io.waveio` | `io.waveio.execution` | managed execution runtime |
+| `io.waveio` | `io.waveio.task` | Task、blocking、Flow bridge |
+| `io.waveio` | `io.waveio.http` | HTTP values、handler、routing、memory fixture |
+| `io.waveio` | `io.waveio.server` | server facade、lifecycle、rendering、observation |
+| `io.waveio` | `io.waveio.testkit` | embedded public-facade fixture |
 
-`io.waveio.netty` 只 qualified-export 給 `io.waveio.server`；consumer 不得直接依賴 transport package。
+`io.waveio.netty` 是同一 module 的未 export internal package；consumer 不得直接依賴 transport package。
 這個 module/export inventory 是 M7 API compatibility check 的 baseline，新增或移除 exports 都必須更新
 本文件並在 changelog 說明。
 

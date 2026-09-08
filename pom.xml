@@ -8,13 +8,7 @@
 
   <name>WaveIO</name>
   <modules>
-    <module>waveio-foundation</module>
-    <module>waveio-execution</module>
-    <module>waveio-task</module>
-    <module>waveio-http</module>
-    <module>waveio-netty</module>
-    <module>waveio-server</module>
-    <module>waveio-testkit</module>
+    <module>waveio</module>
   </modules>
 
   <properties>

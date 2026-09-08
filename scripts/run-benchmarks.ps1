@@ -11,8 +11,8 @@ $lines = @("# WaveIO benchmark report", "", "- JDK: $java", "- OS: $($os.Caption
 Push-Location $root
 try {
     $workloads = @(
-        @{ Name = "execution-task micro workload"; Args = @("-pl", "waveio-task,waveio-execution", "-am", "-Dtest=TaskTest,ExecutionRuntimeTest", "test") },
-        @{ Name = "HTTP real-socket workload"; Args = @("-pl", "waveio-netty", "-am", "-Dtest=PlaintextServerTest", "test") }
+        @{ Name = "execution-task micro workload"; Args = @("-pl", "waveio", "-Dtest=TaskTest,ExecutionRuntimeTest", "test") },
+        @{ Name = "HTTP real-socket workload"; Args = @("-pl", "waveio", "-Dtest=PlaintextServerTest", "test") }
     )
     foreach ($workload in $workloads) {
         $elapsed = 0.0

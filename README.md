@@ -3,8 +3,9 @@
 WaveIO 是以 **Java 25+** 開發、承接 **Ratpack 設計理念**的輕量 HTTP 應用框架。
 面向希望以明確、可組合的非同步 API 建立 HTTP 服務的 Java 後端開發者。
 
-目前處於重新定位階段：本儲存庫只有規劃文件，尚無框架實作、建置骨架或可發布套件。
-舊實作、測試、設計與封存已移除，不保留舊 WaveIO 或 Ratpack API 相容層。
+目前已完成 Java 25 Maven reactor，以及 foundation、execution、Task／Flow 與 HTTP／handler
+模組；尚無可發布套件或 Quick Start。舊實作、測試、設計與封存已移除，不保留舊 WaveIO
+或 Ratpack API 相容層。
 
 ## 設計方向
 
@@ -40,9 +41,9 @@ preview API 未排入首版。核心不提供 ORM、完整 DI 容器或通用 re
 3. [Bottom-up roadmap](ROADMAP.md)：各階段的依賴、交付物與驗收門檻。
 4. [開發任務 backlog](DEVELOPMENT_TASKS.md)：可獨立審查的任務、key results 與驗證證據。
 
-目前已完成 M1 的 foundation：Java 25 Maven reactor、JPMS module 與型別化 registry。
-下一步為 M2 execution runtime。M1 的可重現驗證證據見
-[Foundation 驗證](docs/development/M1.md)。
+目前已完成 M4 的 transport-independent HTTP 與 handler 組合；下一步為 M5 Netty HTTP/1.1
+transport。M4 的可重現驗證證據見 [HTTP 與 Handler 驗證](docs/development/M4.md)，並已由
+GitHub Actions 的 Ubuntu／Windows `verify`（run `34176585523`）確認。
 其餘文件中的 API 名稱及範例都是設計草案，尚無可執行的 Quick Start。
 版本、依賴版本及發布日期尚未設定；不沿用舊版本的測試數字或效能宣稱。
 

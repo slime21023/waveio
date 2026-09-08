@@ -1,6 +1,6 @@
 # Bottom-up Roadmap
 
-更新日期：2026-09-07。
+更新日期：2026-09-08。
 
 本文件提供 WaveIO 新定位的進度摘要；唯一的任務追蹤來源是
 [DEVELOPMENT_TASKS.md](DEVELOPMENT_TASKS.md)。產品範圍見 [README.md](README.md)，技術方向見
@@ -17,8 +17,8 @@
 | M1 | M0 | 完成 | 基礎契約與建置 |
 | M2 | M1 | 完成 | Execution runtime |
 | M3 | M2 | 完成 | Task 與串流橋接 |
-| M4 | M3 | 進行中（待 CI） | HTTP 與 handler 組合 |
-| M5 | M4 | 未開始 | Netty HTTP server |
+| M4 | M3 | 完成 | HTTP 與 handler 組合 |
+| M5 | M4 | 進行中 | Netty HTTP server |
 | M6 | M5 | 未開始 | 應用開發體驗 |
 | M7 | M6 | 未開始 | 首版發布門檻 |
 | M8 | M7 | 未開始 | 首版後擴充 |

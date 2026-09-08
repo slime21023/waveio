@@ -1,6 +1,6 @@
 # WaveIO 開發任務
 
-更新日期：2026-09-07。這是 WaveIO 唯一的 in-repo 任務追蹤文件；進度摘要位於 [ROADMAP.md](ROADMAP.md)，設計契約位於 [ARCHITECTURE.md](ARCHITECTURE.md)。不使用 GitHub Issues 或 Project 作為此 backlog 的替代來源。
+更新日期：2026-09-08。這是 WaveIO 唯一的 in-repo 任務追蹤文件；進度摘要位於 [ROADMAP.md](ROADMAP.md)，設計契約位於 [ARCHITECTURE.md](ARCHITECTURE.md)。不使用 GitHub Issues 或 Project 作為此 backlog 的替代來源。
 
 ## 共同基線
 
@@ -41,7 +41,7 @@
 | M4-03 | M4-02 | 完成 | 實作 `Handler`、`Context`、`Chain`、local registry overlay、response transaction。 | `ResponseTransactionTest` 與 HTTP dependency reactor tests 通過。 |
 | M4-04 | M4-03 | 完成 | 實作 method/path router、parameters、404、405、`Allow`、HEAD 與 error flow；精確 segment path 規則。 | Route、method policy、HEAD suppression 與 router-handler fixture tests。 |
 | M4-05 | M4-04 | 完成 | 建立 memory-only handler fixture，以正式 execution、Task、Chain 驗證端到端。 | `InMemoryExchangeTest` 覆蓋 handler、chain、router、response path。 |
-| M4-06 | M4-05 | 完成 | 完成 public API 與 Netty-isolation gate；回應 commit 後不得再變更或第二次回應。 | full wrapper `verify`、10 HTTP tests、Netty isolation scan、`git diff --check` 通過；CI 待推送結果。 |
+| M4-06 | M4-05 | 完成 | 完成 public API 與 Netty-isolation gate；回應 commit 後不得再變更或第二次回應。 | full wrapper `verify`、10 HTTP tests、Netty isolation scan、`git diff --check` 通過；GitHub Actions run `34176585523` 的 Ubuntu／Windows `verify` 成功。 |
 | M5-01 | M4 | 未開始 | 建立 `waveio-netty`／`io.waveio.netty`；鎖定 Netty `4.2.17.Final`，不用 `netty-all`。 | dependency report。 |
 | M5-02 | M5-01 | 未開始 | 實作 plaintext bootstrap、acceptor、connection lifecycle、首個 request-response path。 | real-socket tests。 |
 | M5-03 | M5-02 | 未開始 | 實作 inbound body→Flow、demand-driven read control、所有 `ByteBuf` release path。 | leak-detection tests。 |
@@ -65,4 +65,4 @@
 
 ## 目前 Gate 與下一步
 
-P0、M1、M2 與 M3 已完成：M0 重置內容、定位文件、backlog 與 ignore 規則已由單一基線 commit 固定；M1–M3 的 Ubuntu／Windows CI gate 都已通過。M4-01 是唯一可開始的後續工作。
+P0–M4 已完成：M0 重置內容、定位文件、backlog 與 ignore 規則已由單一基線 commit 固定；M1–M4 的 Ubuntu／Windows CI gate 都已通過。下一個可開始的工作是 M5-01：建立鎖定 Netty 版本的 transport module。

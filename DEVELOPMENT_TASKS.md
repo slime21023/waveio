@@ -61,7 +61,7 @@
 | M7-04 | M7-03 | 完成 | 擴充 CI：JPMS direction、no-preview、JDK 25、Linux/Windows、public API baseline。 | `scripts/verify-release-gates.ps1` 與 Ubuntu/Windows CI matrix integration；本機 gate 通過。 |
 | M7-05 | M7-04 | 完成 | 執行 reliability suite：restarts、slow clients、cancellation storms、blocking saturation、large streams、leak profile。 | `scripts/run-reliability.ps1 -Iterations 3` 通過；見 `docs/reliability.md`、`docs/development/M7.md`。 |
 | M7-06 | M7-04 | 完成 | 建立可重現 benchmarks，記錄 hardware、JDK、OS、configuration、load，分離 microbenchmark 與 HTTP workload。 | `scripts/run-benchmarks.ps1 -Iterations 1` report 產生；見 `docs/benchmarks.md`、`docs/development/M7.md`。 |
-| M7-07 | M7-05, M7-06 | 未開始 | 建立 `CHANGELOG.md`、release notes、release dry-run 與 `0.1.0` GitHub Release 附件清單；不得自行發布。 | verified attachments 與 dry-run command。 |
+| M7-07 | M7-05, M7-06 | 完成 | 建立 `CHANGELOG.md`、release notes、release dry-run 與 `0.1.0` GitHub Release 附件清單；不得自行發布。 | `scripts/release-dry-run.ps1` 確認 21 個 JAR 與附件清單；未進行外部發布。 |
 
 ## 目前 Gate 與下一步
 

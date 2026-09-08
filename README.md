@@ -44,7 +44,8 @@ preview API 未排入首版。核心不提供 ORM、完整 DI 容器或通用 re
 
 目前已完成 M6 的 public server facade、service lifecycle、response helpers、observation hooks
 及 embedded testkit；最小 API、blocking、streaming 使用說明見 [範例](docs/examples.md)。下一步為
-M7 發布驗證。各階段的可重現驗證證據位於 `docs/development/`。
+M7 發布驗證。各階段的可重現驗證證據位於 `docs/development/`；release dry-run 與附件清單見
+[0.1.0 release notes](docs/releases/0.1.0.md)。
 版本、依賴版本及發布日期尚未設定；不沿用舊版本的測試數字或效能宣稱。
 
 ## 授權

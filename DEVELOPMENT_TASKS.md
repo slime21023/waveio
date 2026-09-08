@@ -43,7 +43,7 @@
 | M4-05 | M4-04 | 完成 | 建立 memory-only handler fixture，以正式 execution、Task、Chain 驗證端到端。 | `InMemoryExchangeTest` 覆蓋 handler、chain、router、response path。 |
 | M4-06 | M4-05 | 完成 | 完成 public API 與 Netty-isolation gate；回應 commit 後不得再變更或第二次回應。 | full wrapper `verify`、10 HTTP tests、Netty isolation scan、`git diff --check` 通過；GitHub Actions run `34176585523` 的 Ubuntu／Windows `verify` 成功。 |
 | M5-01 | M4 | 完成 | 建立 `waveio-netty`／`io.waveio.netty`；鎖定 Netty `4.2.17.Final`，不用 `netty-all`。 | wrapper `verify`、module inspection、Netty dependency tree 通過；見 `docs/development/M5.md`。 |
-| M5-02 | M5-01 | 未開始 | 實作 plaintext bootstrap、acceptor、connection lifecycle、首個 request-response path。 | real-socket tests。 |
+| M5-02 | M5-01 | 完成 | 實作 plaintext bootstrap、acceptor、connection lifecycle、首個 request-response path。 | `PlaintextServerTest` real-socket test 與 reactor test 通過；見 `docs/development/M5.md`。 |
 | M5-03 | M5-02 | 未開始 | 實作 inbound body→Flow、demand-driven read control、所有 `ByteBuf` release path。 | leak-detection tests。 |
 | M5-04 | M5-03 | 未開始 | 實作 outbound writer、commit/flush、write failure、keep-alive、response ordering。 | socket ordering tests。 |
 | M5-05 | M5-04 | 未開始 | 實作 TLS、limits、timeouts、Expect 100、chunked body、protocol failures。 | TLS/protocol tests。 |

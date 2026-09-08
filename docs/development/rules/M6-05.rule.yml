@@ -1,0 +1,12 @@
+goal: "Deliver isolated server observations through an explicit bounded dispatcher"
+keyresults:
+  - kr-1: "Observation events and metric snapshots are immutable."
+  - kr-2: "Dispatcher capacity and parallelism are explicit and saturation is observable."
+  - kr-3: "Observer callback failures are counted without escaping to submitters."
+rules:
+  - id: m6-05-bounded-observers
+    name: observer-dispatch-requires-explicit-bounds
+    apply: "waveio-server/src/main/java"
+    level: error
+    desc:
+      - "Observer dispatch must not use an implicit unbounded queue."

@@ -1,0 +1,12 @@
+goal: "Adapt Netty inbound HTTP content to a demand-driven WaveIO Body"
+keyresults:
+  - kr-1: "Handlers obtain a single-consumption Body through Context.body()."
+  - kr-2: "Each positive Flow demand schedules at most one Netty channel read at a time."
+  - kr-3: "Inbound HttpContent is copied to a read-only ByteBuffer before its ByteBuf is released."
+rules:
+  - id: m5-03-no-bytebuf-in-http-api
+    name: application-body-is-bytebuf-free
+    apply: "waveio-http/src/main/java"
+    level: error
+    desc:
+      - "The public HTTP module must retain ByteBuffer-only body contracts and must not import Netty."

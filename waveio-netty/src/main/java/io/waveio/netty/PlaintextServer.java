@@ -4,7 +4,7 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
-import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -13,7 +13,10 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.buffer.Unpooled;
+import io.netty.util.ReferenceCountUtil;
 import io.waveio.execution.ExecutionConfig;
 import io.waveio.execution.ExecutionRuntime;
 import io.waveio.http.Context;
@@ -26,9 +29,11 @@ import io.waveio.http.ResponseTransaction;
 import io.waveio.registry.Registry;
 import io.waveio.task.Task;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.Flow;
 
 /** Temporary package-private plaintext server used while the public facade is built in M6. */
 @SuppressWarnings("deprecation")
@@ -71,7 +76,7 @@ final class PlaintextServer implements AutoCloseable {
         bossGroup.shutdownGracefully().syncUninterruptibly();
     }
 
-    private static final class RequestHandler extends SimpleChannelInboundHandler<HttpRequest> {
+    private static final class RequestHandler extends ChannelInboundHandlerAdapter {
         private final Handler handler;
         private final Registry registry;
         private final ExecutionRuntime runtime;
@@ -82,9 +87,28 @@ final class PlaintextServer implements AutoCloseable {
             this.runtime = runtime;
         }
 
-        @Override protected void channelRead0(ChannelHandlerContext channel, HttpRequest request) {
+        @Override public void channelRead(ChannelHandlerContext channel, Object message) {
+            if (message instanceof HttpRequest request) {
+                beginRequest(channel, request);
+            } else if (message instanceof HttpContent content) {
+                InboundBodyPublisher body = channel.channel().attr(InboundBodyPublisher.KEY).get();
+                if (body == null) {
+                    ReferenceCountUtil.release(content);
+                    channel.close();
+                } else {
+                    body.onContent(content);
+                }
+            } else {
+                ReferenceCountUtil.release(message);
+            }
+        }
+
+        private void beginRequest(ChannelHandlerContext channel, HttpRequest request) {
+            channel.channel().config().setAutoRead(false);
+            InboundBodyPublisher body = new InboundBodyPublisher(channel);
+            channel.channel().attr(InboundBodyPublisher.KEY).set(body);
             ResponseTransaction response = new ResponseTransaction();
-            Context context = new RequestContext(toWaveRequest(request), registry, response);
+            Context context = new RequestContext(toWaveRequest(request, io.waveio.http.Body.of(body)), registry, response);
             try {
                 handler.handle(context).run(runtime).whenComplete((ignored, failure) -> {
                     if (failure != null || response.committed().isEmpty()) {
@@ -98,8 +122,8 @@ final class PlaintextServer implements AutoCloseable {
             }
         }
 
-        private static io.waveio.http.HttpRequest toWaveRequest(HttpRequest request) {
-            return new io.waveio.http.HttpRequest(HttpMethod.valueOf(request.method().name()), RequestUri.parse(request.uri()), Headers.empty());
+        private static io.waveio.http.HttpRequest toWaveRequest(HttpRequest request, io.waveio.http.Body body) {
+            return new io.waveio.http.HttpRequest(HttpMethod.valueOf(request.method().name()), RequestUri.parse(request.uri()), Headers.empty(), body);
         }
 
         private static void write(ChannelHandlerContext channel, HttpResponse response) {
@@ -122,10 +146,113 @@ final class PlaintextServer implements AutoCloseable {
         }
 
         @Override public io.waveio.http.HttpRequest request() { return request; }
+        @Override public io.waveio.http.Body body() { return request.body(); }
         @Override public Registry registry() { return registry; }
         @Override public Map<String, String> pathParameters() { return Map.of(); }
         @Override public void respond(HttpResponse candidate) { response.commit(candidate); }
         @Override public Task<Void> next() { return Task.failure(new IllegalStateException("no handler chain is installed")); }
         @Override public Task<Void> insert(List<Handler> handlers) { return Task.failure(new IllegalStateException("no handler chain is installed")); }
+    }
+
+    private static final class InboundBodyPublisher implements Flow.Publisher<ByteBuffer> {
+        static final io.netty.util.AttributeKey<InboundBodyPublisher> KEY = io.netty.util.AttributeKey.valueOf("waveio.inbound-body");
+        private final ChannelHandlerContext channel;
+        private Flow.Subscriber<? super ByteBuffer> subscriber;
+        private long demand;
+        private boolean subscribed;
+        private boolean completed;
+        private boolean readInFlight;
+
+        InboundBodyPublisher(ChannelHandlerContext channel) { this.channel = channel; }
+
+        @Override public synchronized void subscribe(Flow.Subscriber<? super ByteBuffer> candidate) {
+            Objects.requireNonNull(candidate, "subscriber");
+            if (subscribed) {
+                candidate.onSubscribe(new EmptySubscription());
+                candidate.onError(new IllegalStateException("HTTP body has already been consumed"));
+                return;
+            }
+            subscribed = true;
+            subscriber = candidate;
+            candidate.onSubscribe(new Flow.Subscription() {
+                @Override public void request(long count) { requestMore(count); }
+                @Override public void cancel() { InboundBodyPublisher.this.cancel(); }
+            });
+        }
+
+        synchronized void onContent(HttpContent content) {
+            try {
+                readInFlight = false;
+                if (completed) {
+                    return;
+                }
+                if (subscriber == null && content instanceof LastHttpContent && content.content().readableBytes() == 0) {
+                    completed = true;
+                    return;
+                }
+                if (subscriber == null) {
+                    completed = true;
+                    channel.close();
+                    return;
+                }
+                boolean last = content instanceof LastHttpContent;
+                int size = content.content().readableBytes();
+                if (size > 0 && demand == 0) {
+                    fail(new IllegalStateException("received HTTP body bytes without demand"));
+                    return;
+                }
+                if (size > 0) {
+                    byte[] bytes = new byte[size];
+                    content.content().getBytes(content.content().readerIndex(), bytes);
+                    demand--;
+                    subscriber.onNext(ByteBuffer.wrap(bytes).asReadOnlyBuffer());
+                }
+                if (last) {
+                    completed = true;
+                    subscriber.onComplete();
+                } else {
+                    scheduleRead();
+                }
+            } finally {
+                ReferenceCountUtil.release(content);
+            }
+        }
+
+        private synchronized void requestMore(long count) {
+            if (count <= 0) {
+                fail(new IllegalArgumentException("non-positive demand"));
+                return;
+            }
+            if (completed) { return; }
+            demand = Math.min(Long.MAX_VALUE, demand + count);
+            scheduleRead();
+        }
+
+        private synchronized void cancel() {
+            if (!completed) {
+                completed = true;
+                channel.close();
+            }
+        }
+
+        private void scheduleRead() {
+            if (!completed && demand > 0 && !readInFlight) {
+                readInFlight = true;
+                channel.executor().execute(channel::read);
+            }
+        }
+
+        private void fail(Throwable failure) {
+            if (!completed) {
+                completed = true;
+                subscriber.onError(failure);
+                channel.close();
+            }
+        }
+
+        private static final class EmptySubscription implements Flow.Subscription {
+            @Override public void request(long count) { }
+            @Override public void cancel() { }
+        }
     }
 }

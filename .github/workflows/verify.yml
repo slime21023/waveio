@@ -29,3 +29,6 @@ jobs:
       - name: Verify (Windows)
         if: runner.os == 'Windows'
         run: .\mvnw.cmd -B -ntp verify
+      - name: Release API and JPMS gates
+        shell: pwsh
+        run: ./scripts/verify-release-gates.ps1

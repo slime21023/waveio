@@ -9,12 +9,15 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.DefaultHttpContent;
+import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.codec.http.HttpUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.util.ReferenceCountUtil;
 import io.waveio.execution.ExecutionConfig;
@@ -112,13 +115,22 @@ final class PlaintextServer implements AutoCloseable {
             try {
                 handler.handle(context).run(runtime).whenComplete((ignored, failure) -> {
                     if (failure != null || response.committed().isEmpty()) {
-                        write(channel, HttpResponse.of(io.waveio.http.HttpStatus.INTERNAL_SERVER_ERROR));
+                        write(channel, HttpResponse.of(io.waveio.http.HttpStatus.INTERNAL_SERVER_ERROR), () -> finish(channel, false));
                     } else {
-                        write(channel, response.committed().orElseThrow());
+                        write(channel, response.committed().orElseThrow(), () -> finish(channel, HttpUtil.isKeepAlive(request)));
                     }
                 });
             } catch (Throwable failure) {
-                write(channel, HttpResponse.of(io.waveio.http.HttpStatus.INTERNAL_SERVER_ERROR));
+                write(channel, HttpResponse.of(io.waveio.http.HttpStatus.INTERNAL_SERVER_ERROR), () -> finish(channel, false));
+            }
+        }
+
+        private static void finish(ChannelHandlerContext channel, boolean keepAlive) {
+            if (keepAlive && channel.channel().isActive()) {
+                channel.channel().config().setAutoRead(true);
+                channel.read();
+            } else {
+                channel.close();
             }
         }
 
@@ -126,11 +138,35 @@ final class PlaintextServer implements AutoCloseable {
             return new io.waveio.http.HttpRequest(HttpMethod.valueOf(request.method().name()), RequestUri.parse(request.uri()), Headers.empty(), body);
         }
 
-        private static void write(ChannelHandlerContext channel, HttpResponse response) {
+        private static void write(ChannelHandlerContext channel, HttpResponse response, Runnable complete) {
+            if (!channel.channel().isActive()) { return; }
+            if (response.body().isKnownEmpty()) {
+                writeEmpty(channel, response, complete);
+                return;
+            }
+            DefaultHttpResponse outbound = new DefaultHttpResponse(io.netty.handler.codec.http.HttpVersion.HTTP_1_1,
+                    new HttpResponseStatus(response.status().code(), response.status().reason()));
+            response.headers().forEach((name, value) -> outbound.headers().add(name, value));
+            HttpUtil.setTransferEncodingChunked(outbound, true);
+            channel.writeAndFlush(outbound).addListener(future -> {
+                if (future.isSuccess()) {
+                    response.body().subscribe(new OutboundBodyWriter(channel, complete));
+                } else {
+                    channel.close();
+                }
+            });
+        }
+
+        private static void writeEmpty(ChannelHandlerContext channel, HttpResponse response, Runnable complete) {
             DefaultFullHttpResponse outbound = new DefaultFullHttpResponse(io.netty.handler.codec.http.HttpVersion.HTTP_1_1,
                     new HttpResponseStatus(response.status().code(), response.status().reason()), Unpooled.EMPTY_BUFFER);
-            outbound.headers().set(HttpHeaderNames.CONTENT_LENGTH, 0);
-            channel.writeAndFlush(outbound);
+            response.headers().forEach((name, value) -> outbound.headers().add(name, value));
+            if (!outbound.headers().contains(HttpHeaderNames.CONTENT_LENGTH)) {
+                outbound.headers().set(HttpHeaderNames.CONTENT_LENGTH, 0);
+            }
+            channel.writeAndFlush(outbound).addListener(future -> {
+                if (future.isSuccess()) { complete.run(); } else { channel.close(); }
+            });
         }
     }
 
@@ -152,6 +188,43 @@ final class PlaintextServer implements AutoCloseable {
         @Override public void respond(HttpResponse candidate) { response.commit(candidate); }
         @Override public Task<Void> next() { return Task.failure(new IllegalStateException("no handler chain is installed")); }
         @Override public Task<Void> insert(List<Handler> handlers) { return Task.failure(new IllegalStateException("no handler chain is installed")); }
+    }
+
+    private static final class OutboundBodyWriter implements Flow.Subscriber<ByteBuffer> {
+        private final ChannelHandlerContext channel;
+        private final Runnable complete;
+        private Flow.Subscription subscription;
+
+        OutboundBodyWriter(ChannelHandlerContext channel, Runnable complete) { this.channel = channel; this.complete = complete; }
+
+        @Override public void onSubscribe(Flow.Subscription candidate) {
+            if (subscription != null) {
+                candidate.cancel();
+                return;
+            }
+            subscription = candidate;
+            candidate.request(1);
+        }
+
+        @Override public void onNext(ByteBuffer bytes) {
+            Objects.requireNonNull(bytes, "bytes");
+            channel.writeAndFlush(new DefaultHttpContent(Unpooled.copiedBuffer(bytes))).addListener(future -> {
+                if (future.isSuccess()) {
+                    subscription.request(1);
+                } else {
+                    subscription.cancel();
+                    channel.close();
+                }
+            });
+        }
+
+        @Override public void onError(Throwable failure) { channel.close(); }
+
+        @Override public void onComplete() {
+            channel.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT).addListener(future -> {
+                if (future.isSuccess()) { complete.run(); } else { channel.close(); }
+            });
+        }
     }
 
     private static final class InboundBodyPublisher implements Flow.Publisher<ByteBuffer> {

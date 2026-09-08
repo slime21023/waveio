@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 
 /** Immutable case-insensitive HTTP headers retaining all supplied values. */
 public final class Headers {
@@ -16,6 +17,7 @@ public final class Headers {
     /** Returns a builder. */ public static Builder builder() { return new Builder(); }
     /** Returns all values for a field name. */ public List<String> all(String name) { return values.getOrDefault(normalize(name), List.of()); }
     /** Returns the first value, or null when absent. */ public String first(String name) { List<String> all = all(name); return all.isEmpty() ? null : all.getFirst(); }
+    /** Visits every normalized field name and retained value. */ public void forEach(BiConsumer<String, String> consumer) { Objects.requireNonNull(consumer, "consumer"); values.forEach((name, entries) -> entries.forEach(value -> consumer.accept(name, value))); }
     /** Builder for immutable headers. */ public static final class Builder {
         private final Map<String, List<String>> values = new LinkedHashMap<>();
         private Builder() { }

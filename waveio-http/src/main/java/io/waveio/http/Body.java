@@ -11,10 +11,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class Body implements Flow.Publisher<ByteBuffer> {
     private final Flow.Publisher<ByteBuffer> source;
     private final AtomicBoolean consumed = new AtomicBoolean();
+    private final boolean knownEmpty;
 
-    private Body(Flow.Publisher<ByteBuffer> source) { this.source = Objects.requireNonNull(source, "source"); }
-    /** Wraps a body publisher that may be subscribed to exactly once. */ public static Body of(Flow.Publisher<ByteBuffer> source) { return new Body(source); }
-    /** Returns an empty body. */ public static Body empty() { return of(subscriber -> subscriber.onSubscribe(new Flow.Subscription() { public void request(long count) { if (count > 0) { subscriber.onComplete(); } else { subscriber.onError(new IllegalArgumentException("non-positive demand")); } } public void cancel() { } })); }
+    private Body(Flow.Publisher<ByteBuffer> source, boolean knownEmpty) { this.source = Objects.requireNonNull(source, "source"); this.knownEmpty = knownEmpty; }
+    /** Wraps a body publisher that may be subscribed to exactly once. */ public static Body of(Flow.Publisher<ByteBuffer> source) { return new Body(source, false); }
+    /** Returns an empty body. */ public static Body empty() { return new Body(subscriber -> subscriber.onSubscribe(new Flow.Subscription() { public void request(long count) { if (count > 0) { subscriber.onComplete(); } else { subscriber.onError(new IllegalArgumentException("non-positive demand")); } } public void cancel() { } }), true); }
+    /** Returns whether this body is the explicit empty-body value. */ public boolean isKnownEmpty() { return knownEmpty; }
     /** Subscribes once; a second subscriber receives an error without reaching the source. */
     @Override public void subscribe(Flow.Subscriber<? super ByteBuffer> subscriber) {
         Objects.requireNonNull(subscriber, "subscriber");

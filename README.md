@@ -40,6 +40,7 @@ preview API 未排入首版。核心不提供 ORM、完整 DI 容器或通用 re
 2. [架構與 API 方向](ARCHITECTURE.md)：分層、執行語意、資源邊界與技術決策。
 3. [Bottom-up roadmap](ROADMAP.md)：各階段的依賴、交付物與驗收門檻。
 4. [開發任務 backlog](DEVELOPMENT_TASKS.md)：可獨立審查的任務、key results 與驗證證據。
+5. [API 相容性基線](docs/API_COMPATIBILITY.md)：0.1.0 public boundary 與 Java 支援政策。
 
 目前已完成 M6 的 public server facade、service lifecycle、response helpers、observation hooks
 及 embedded testkit；最小 API、blocking、streaming 使用說明見 [範例](docs/examples.md)。下一步為

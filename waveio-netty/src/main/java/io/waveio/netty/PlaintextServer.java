@@ -49,20 +49,22 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /** Temporary package-private plaintext server used while the public facade is built in M6. */
 @SuppressWarnings("deprecation")
-final class PlaintextServer implements AutoCloseable {
+public final class PlaintextServer implements AutoCloseable {
     private final NioEventLoopGroup bossGroup;
     private final NioEventLoopGroup workerGroup;
     private final ExecutionRuntime runtime;
     private final Channel channel;
     private final ChannelGroup childChannels;
     private final ShutdownState shutdownState;
+    private final AtomicBoolean stopped;
 
-    private PlaintextServer(Handler handler, Registry registry, ExecutionConfig config, TransportConfig transportConfig, SslContext sslContext) {
+    private PlaintextServer(InetSocketAddress address, Handler handler, Registry registry, ExecutionConfig config, TransportConfig transportConfig, SslContext sslContext) {
         bossGroup = new NioEventLoopGroup(1);
         workerGroup = new NioEventLoopGroup();
         runtime = ExecutionRuntime.create(config);
         childChannels = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
         shutdownState = new ShutdownState();
+        stopped = new AtomicBoolean();
         try {
             channel = new ServerBootstrap().group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
                     .childHandler(new ChannelInitializer<SocketChannel>() {
@@ -73,7 +75,7 @@ final class PlaintextServer implements AutoCloseable {
                             socket.pipeline().addLast(new HttpServerCodec(transportConfig.maximumInitialLineLength(), transportConfig.maximumHeaderSize(), transportConfig.maximumChunkSize()));
                             socket.pipeline().addLast(new RequestHandler(handler, registry, runtime, shutdownState));
                         }
-                    }).bind(0).syncUninterruptibly().channel();
+                    }).bind(address).syncUninterruptibly().channel();
         } catch (RuntimeException failure) {
             runtime.close();
             workerGroup.shutdownGracefully().syncUninterruptibly();
@@ -82,19 +84,27 @@ final class PlaintextServer implements AutoCloseable {
         }
     }
 
-    static PlaintextServer start(Handler handler, Registry registry, ExecutionConfig config, TransportConfig transportConfig) {
-        return new PlaintextServer(Objects.requireNonNull(handler, "handler"), Objects.requireNonNull(registry, "registry"), Objects.requireNonNull(config, "config"), Objects.requireNonNull(transportConfig, "transportConfig"), null);
+    public static PlaintextServer start(Handler handler, Registry registry, ExecutionConfig config, TransportConfig transportConfig) {
+        return start(new InetSocketAddress(0), handler, registry, config, transportConfig);
     }
 
-    static PlaintextServer startTls(Handler handler, Registry registry, ExecutionConfig config, TransportConfig transportConfig, SslContext sslContext) {
-        return new PlaintextServer(Objects.requireNonNull(handler, "handler"), Objects.requireNonNull(registry, "registry"), Objects.requireNonNull(config, "config"), Objects.requireNonNull(transportConfig, "transportConfig"), Objects.requireNonNull(sslContext, "sslContext"));
+    /** Starts a plaintext server at the requested local address. */
+    public static PlaintextServer start(InetSocketAddress address, Handler handler, Registry registry, ExecutionConfig config, TransportConfig transportConfig) {
+        return new PlaintextServer(Objects.requireNonNull(address, "address"), Objects.requireNonNull(handler, "handler"), Objects.requireNonNull(registry, "registry"), Objects.requireNonNull(config, "config"), Objects.requireNonNull(transportConfig, "transportConfig"), null);
     }
 
-    int port() { return ((InetSocketAddress) channel.localAddress()).getPort(); }
+    public static PlaintextServer startTls(Handler handler, Registry registry, ExecutionConfig config, TransportConfig transportConfig, SslContext sslContext) {
+        return new PlaintextServer(new InetSocketAddress(0), Objects.requireNonNull(handler, "handler"), Objects.requireNonNull(registry, "registry"), Objects.requireNonNull(config, "config"), Objects.requireNonNull(transportConfig, "transportConfig"), Objects.requireNonNull(sslContext, "sslContext"));
+    }
 
-    void stop(Duration timeout) {
+    /** Returns the bound local TCP port. */
+    public int port() { return ((InetSocketAddress) channel.localAddress()).getPort(); }
+
+    /** Stops accepting traffic, waits for active requests, then closes transport resources. */
+    public void stop(Duration timeout) {
         Objects.requireNonNull(timeout, "timeout");
         if (timeout.isNegative()) { throw new IllegalArgumentException("timeout must not be negative"); }
+        if (!stopped.compareAndSet(false, true)) { return; }
         shutdownState.beginStop();
         channel.close().syncUninterruptibly();
         shutdownState.awaitQuiescence(timeout);

@@ -7,4 +7,5 @@ module io.waveio.netty {
     requires io.netty.handler;
     requires io.netty.transport;
     requires transitive io.waveio.http;
+    exports io.waveio.netty to io.waveio.server;
 }

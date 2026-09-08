@@ -3,6 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <parent><groupId>io.waveio</groupId><artifactId>waveio-parent</artifactId><version>0.1.0-SNAPSHOT</version></parent>
   <artifactId>waveio-netty</artifactId><name>WaveIO Netty transport</name>
+  <build><plugins><plugin><artifactId>maven-compiler-plugin</artifactId><configuration><compilerArgs><arg>-Xlint:-exports</arg></compilerArgs></configuration></plugin></plugins></build>
   <dependencies>
     <dependency><groupId>io.waveio</groupId><artifactId>waveio-http</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>io.netty</groupId><artifactId>netty-transport</artifactId><version>${netty.version}</version></dependency>

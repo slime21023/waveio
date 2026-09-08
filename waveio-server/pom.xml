@@ -6,6 +6,7 @@
   <dependencies>
     <dependency><groupId>io.waveio</groupId><artifactId>waveio-http</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>io.waveio</groupId><artifactId>waveio-execution</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.waveio</groupId><artifactId>waveio-netty</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>${junit.version}</version><scope>test</scope></dependency>
   </dependencies>
 </project>

@@ -56,7 +56,7 @@
 | M6-06 | M6-03, M6-04 | 完成 | 建立 `waveio-testkit`、embedded fixture、最小 API/blocking/streaming examples。 | embedded real-socket test 與 reactor test 通過；見 `docs/examples.md`、`docs/development/M6.md`。 |
 | M6-07 | M6-05, M6-06 | 完成 | 完成 public-facade、lifecycle、example consistency gate；所有 server capacities 與 timeouts 必須顯式。 | full wrapper `verify` 與 public embedded-server test 通過；見 `docs/development/M6.md`。 |
 | M7-01 | M6 | 完成 | 固定 public/internal boundary、0.x SemVer、Java 25 support policy、API baseline。 | module-export inventory 與 full wrapper `verify` 通過；見 `docs/API_COMPATIBILITY.md`、`docs/development/M7.md`。 |
-| M7-02 | M7-01 | 未開始 | 建立 reproducible JAR/sources/javadoc/checksum/LICENSE/NOTICE/dependency report distribution。 | clean distribution verification。 |
+| M7-02 | M7-01 | 完成 | 建立 reproducible JAR/sources/javadoc/checksum/LICENSE/NOTICE/dependency report distribution。 | `mvnw -DskipTests verify`、assembly script 與 SHA-256 manifest 通過；見 `docs/development/M7.md`。 |
 | M7-03 | M7-02 | 未開始 | 從 packaged artifacts 編譯與執行最小服務，不使用 reactor classpath。 | clean consumer test。 |
 | M7-04 | M7-03 | 未開始 | 擴充 CI：JPMS direction、no-preview、JDK 25、Linux/Windows、public API baseline。 | CI evidence。 |
 | M7-05 | M7-04 | 未開始 | 執行 reliability suite：restarts、slow clients、cancellation storms、blocking saturation、large streams、leak profile。 | reproducible suite report。 |

@@ -15,10 +15,11 @@ class ObserverDispatcherTest {
     void recordsDeliveredAndFailedObserverCallbacks() throws InterruptedException {
         CountDownLatch observed = new CountDownLatch(1);
         try (ObserverDispatcher dispatcher = new ObserverDispatcher(List.of(
-                event -> observed.countDown(), event -> { throw new IllegalStateException("broken"); }), 1, 1)) {
+                event -> { }, event -> { throw new IllegalStateException("broken"); },
+                event -> observed.countDown()), 1, 1)) {
             assertTrue(dispatcher.submit(new ObservationEvent("request.completed", Instant.EPOCH)));
             assertTrue(observed.await(5, TimeUnit.SECONDS));
-            assertEquals(new ObservationMetrics(1, 0, 1), dispatcher.metrics());
+            assertEquals(new ObservationMetrics(2, 0, 1), dispatcher.metrics());
         }
     }
 

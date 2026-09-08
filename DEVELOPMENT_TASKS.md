@@ -53,7 +53,7 @@
 | M6-03 | M6-02 | 完成 | 實作 `Service` lifecycle：順序啟動、反向關閉、init failure rollback。 | lifecycle order／rollback tests 與 server reactor test 通過；見 `docs/development/M6.md`。 |
 | M6-04 | M6-02 | 完成 | 實作 text/bytes helpers 與 exact-class `Renderer<T>` SPI；不內建 JSON。 | renderer exact-match tests 與 server reactor test 通過；見 `docs/development/M6.md`。 |
 | M6-05 | M6-02 | 完成 | 實作 immutable observation events、bounded observer dispatcher、failure metrics。 | observer dispatch tests 與 server reactor test 通過；見 `docs/development/M6.md`。 |
-| M6-06 | M6-03, M6-04 | 未開始 | 建立 `waveio-testkit`、embedded fixture、最小 API/blocking/streaming examples。 | executable examples。 |
+| M6-06 | M6-03, M6-04 | 完成 | 建立 `waveio-testkit`、embedded fixture、最小 API/blocking/streaming examples。 | embedded real-socket test 與 reactor test 通過；見 `docs/examples.md`、`docs/development/M6.md`。 |
 | M6-07 | M6-05, M6-06 | 未開始 | 完成 public-facade、lifecycle、example consistency gate；所有 server capacities 與 timeouts 必須顯式。 | wrapper `verify`。 |
 | M7-01 | M6 | 未開始 | 固定 public/internal boundary、0.x SemVer、Java 25 support policy、API baseline。 | API compatibility check。 |
 | M7-02 | M7-01 | 未開始 | 建立 reproducible JAR/sources/javadoc/checksum/LICENSE/NOTICE/dependency report distribution。 | clean distribution verification。 |

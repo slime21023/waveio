@@ -14,6 +14,7 @@
     <module>waveio-http</module>
     <module>waveio-netty</module>
     <module>waveio-server</module>
+    <module>waveio-testkit</module>
   </modules>
 
   <properties>

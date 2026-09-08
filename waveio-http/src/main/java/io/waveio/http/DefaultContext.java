@@ -15,5 +15,6 @@ final class DefaultContext implements Context {
     public void respond(HttpResponse value) { select(); response.commit(value); }
     public Task<Void> next() { select(); return chain.next(this); }
     public Task<Void> insert(List<Handler> handlers) { select(); return chain.insert(this, List.copyOf(handlers)); }
+    DefaultContext withChain(Chain nextChain) { return new DefaultContext(request, registry, nextChain, response); }
     private void select() { if (controlFlowSelected) { throw new IllegalStateException("handler invocation already selected a control flow"); } controlFlowSelected = true; }
 }

@@ -1,0 +1,12 @@
+goal: "Close the HTTP public API and Netty-isolation gate"
+keyresults:
+  - kr-1: "HTTP public contracts expose no Netty types."
+  - kr-2: "Memory fixture covers handler, chain, router, response, and policy paths."
+  - kr-3: "HEAD suppresses body consumption while retaining status and headers."
+rules:
+  - id: m4-06-no-netty-public-api
+    name: http-module-is-netty-free
+    apply: "waveio-http/src/main/java"
+    level: error
+    desc:
+      - "No source imports io.netty or exposes Netty types."

@@ -39,9 +39,9 @@
 | M4-01 | M3 | 完成 | 建立 `waveio-http`／`io.waveio.http`；實作 immutable HTTP value types。 | `HttpValueTest` 與 HTTP dependency reactor tests 通過。 |
 | M4-02 | M4-01 | 完成 | 實作 Flow-based single-consumption `Body` 與 bounded collector。 | `BodyTest` 驗證 single consumption；bounded collection 由 Flow tests 驗證。 |
 | M4-03 | M4-02 | 完成 | 實作 `Handler`、`Context`、`Chain`、local registry overlay、response transaction。 | `ResponseTransactionTest` 與 HTTP dependency reactor tests 通過。 |
-| M4-04 | M4-03 | 進行中 | 實作 method/path router、parameters、404、405、`Allow`、HEAD 與 error flow；精確 segment path 規則。 | `RoutePatternTest` 已覆蓋 exact segment 與安全 decoding；method policy 待完成。 |
-| M4-05 | M4-04 | 進行中 | 建立 memory-only handler fixture，以正式 execution、Task、Chain 驗證端到端。 | `InMemoryExchangeTest` 已驗證 Task／Execution／response path；chain routing integration 待完成。 |
-| M4-06 | M4-05 | 未開始 | 完成 public API 與 Netty-isolation gate；回應 commit 後不得再變更或第二次回應。 | wrapper `verify`。 |
+| M4-04 | M4-03 | 完成 | 實作 method/path router、parameters、404、405、`Allow`、HEAD 與 error flow；精確 segment path 規則。 | Route、method policy、HEAD suppression 與 router-handler fixture tests。 |
+| M4-05 | M4-04 | 完成 | 建立 memory-only handler fixture，以正式 execution、Task、Chain 驗證端到端。 | `InMemoryExchangeTest` 覆蓋 handler、chain、router、response path。 |
+| M4-06 | M4-05 | 完成 | 完成 public API 與 Netty-isolation gate；回應 commit 後不得再變更或第二次回應。 | full wrapper `verify`、10 HTTP tests、Netty isolation scan、`git diff --check` 通過；CI 待推送結果。 |
 | M5-01 | M4 | 未開始 | 建立 `waveio-netty`／`io.waveio.netty`；鎖定 Netty `4.2.17.Final`，不用 `netty-all`。 | dependency report。 |
 | M5-02 | M5-01 | 未開始 | 實作 plaintext bootstrap、acceptor、connection lifecycle、首個 request-response path。 | real-socket tests。 |
 | M5-03 | M5-02 | 未開始 | 實作 inbound body→Flow、demand-driven read control、所有 `ByteBuf` release path。 | leak-detection tests。 |

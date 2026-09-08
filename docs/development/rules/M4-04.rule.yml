@@ -1,0 +1,12 @@
+goal: "Route HTTP methods and exact path segments safely"
+keyresults:
+  - kr-1: "Path matching preserves trailing slash distinctions."
+  - kr-2: "Path parameters decode once and encoded slash or malformed percent encoding is rejected."
+  - kr-3: "Router later maps no-path-match to 404 and method mismatch to 405 with Allow."
+rules:
+  - id: m4-04-safe-path-decoding
+    name: router-rejects-ambiguous-encoded-slashes
+    apply: "waveio-http/src/main/java/io/waveio/http/RoutePattern.java"
+    level: error
+    desc:
+      - "Encoded slash is rejected before segment decoding."

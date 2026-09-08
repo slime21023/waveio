@@ -59,6 +59,16 @@ class ServerSpecTest {
         assertEquals(List.of("start:first", "start:second", "stop:first"), events);
     }
 
+    @Test void rendersTextAndUsesOnlyExactRendererClasses() throws Exception {
+        assertEquals("text/plain; charset=utf-8", Responses.text("hello").headers().first("content-type"));
+        Renderer<String> stringRenderer = new Renderer<>() {
+            @Override public Class<String> type() { return String.class; }
+            @Override public HttpResponse render(String value) { return Responses.text(value); }
+        };
+        assertEquals(HttpStatus.OK, Renderers.of(List.of(stringRenderer)).render("hello").status());
+        assertThrows(IllegalArgumentException.class, () -> Renderers.of(List.of(stringRenderer)).render(new StringBuilder("hello")));
+    }
+
     private static final class RecordingService implements Service {
         private final String name; private final List<String> events; private final boolean failStart;
         RecordingService(String name, List<String> events, boolean failStart) { this.name = name; this.events = events; this.failStart = failStart; }

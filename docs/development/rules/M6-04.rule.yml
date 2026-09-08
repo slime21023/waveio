@@ -1,0 +1,12 @@
+goal: "Provide small built-in response helpers and exact-class rendering"
+keyresults:
+  - kr-1: "Text and byte helpers set deterministic metadata without JSON dependencies."
+  - kr-2: "Renderer lookup accepts only an exact runtime class."
+  - kr-3: "Duplicate renderer classes are rejected during immutable registry creation."
+rules:
+  - id: m6-04-no-json-dependency
+    name: rendering-core-excludes-json
+    apply: "waveio-server"
+    level: error
+    desc:
+      - "The server facade must not add a built-in JSON serializer dependency."

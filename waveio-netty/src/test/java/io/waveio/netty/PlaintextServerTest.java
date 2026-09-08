@@ -3,6 +3,7 @@ package io.waveio.netty;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.waveio.execution.ExecutionConfig;
 import io.waveio.http.HttpResponse;
@@ -18,6 +19,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.ByteBuffer;
 import java.util.concurrent.Flow;
@@ -177,6 +179,16 @@ import org.junit.jupiter.api.Test;
             output.flush();
             assertEquals(-1, socket.getInputStream().read());
         }
+    }
+
+    @Test void gracefulStopClosesTheAcceptorBeforeItReturns() {
+        PlaintextServer server = PlaintextServer.start(context -> {
+            context.respond(HttpResponse.of(HttpStatus.OK));
+            return Task.success(null);
+        }, Registry.empty(), new ExecutionConfig(8, 1, Duration.ofSeconds(1)), transportConfig());
+        int port = server.port();
+        server.stop(Duration.ofMillis(100));
+        assertThrows(IOException.class, () -> new Socket("127.0.0.1", port));
     }
 
     private static TransportConfig transportConfig() { return new TransportConfig(4096, 8192, 4096, Duration.ofSeconds(2)); }

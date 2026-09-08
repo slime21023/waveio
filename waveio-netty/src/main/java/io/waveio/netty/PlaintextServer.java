@@ -8,6 +8,9 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.DefaultChannelGroup;
+import io.netty.util.concurrent.GlobalEventExecutor;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpContent;
 import io.netty.handler.codec.http.DefaultHttpResponse;
@@ -40,6 +43,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
+import java.time.Duration;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Temporary package-private plaintext server used while the public facade is built in M6. */
 @SuppressWarnings("deprecation")
@@ -48,19 +54,24 @@ final class PlaintextServer implements AutoCloseable {
     private final NioEventLoopGroup workerGroup;
     private final ExecutionRuntime runtime;
     private final Channel channel;
+    private final ChannelGroup childChannels;
+    private final ShutdownState shutdownState;
 
     private PlaintextServer(Handler handler, Registry registry, ExecutionConfig config, TransportConfig transportConfig, SslContext sslContext) {
         bossGroup = new NioEventLoopGroup(1);
         workerGroup = new NioEventLoopGroup();
         runtime = ExecutionRuntime.create(config);
+        childChannels = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
+        shutdownState = new ShutdownState();
         try {
             channel = new ServerBootstrap().group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override protected void initChannel(SocketChannel socket) {
+                            childChannels.add(socket);
                             if (sslContext != null) { socket.pipeline().addLast(sslContext.newHandler(socket.alloc())); }
                             socket.pipeline().addLast(new ReadTimeoutHandler(transportConfig.idleTimeout().toNanos(), TimeUnit.NANOSECONDS));
                             socket.pipeline().addLast(new HttpServerCodec(transportConfig.maximumInitialLineLength(), transportConfig.maximumHeaderSize(), transportConfig.maximumChunkSize()));
-                            socket.pipeline().addLast(new RequestHandler(handler, registry, runtime));
+                            socket.pipeline().addLast(new RequestHandler(handler, registry, runtime, shutdownState));
                         }
                     }).bind(0).syncUninterruptibly().channel();
         } catch (RuntimeException failure) {
@@ -81,22 +92,31 @@ final class PlaintextServer implements AutoCloseable {
 
     int port() { return ((InetSocketAddress) channel.localAddress()).getPort(); }
 
-    @Override public void close() {
+    void stop(Duration timeout) {
+        Objects.requireNonNull(timeout, "timeout");
+        if (timeout.isNegative()) { throw new IllegalArgumentException("timeout must not be negative"); }
+        shutdownState.beginStop();
         channel.close().syncUninterruptibly();
+        shutdownState.awaitQuiescence(timeout);
+        childChannels.close().syncUninterruptibly();
         runtime.close();
         workerGroup.shutdownGracefully().syncUninterruptibly();
         bossGroup.shutdownGracefully().syncUninterruptibly();
     }
 
+    @Override public void close() { stop(Duration.ZERO); }
+
     private static final class RequestHandler extends ChannelInboundHandlerAdapter {
         private final Handler handler;
         private final Registry registry;
         private final ExecutionRuntime runtime;
+        private final ShutdownState shutdownState;
 
-        RequestHandler(Handler handler, Registry registry, ExecutionRuntime runtime) {
+        RequestHandler(Handler handler, Registry registry, ExecutionRuntime runtime, ShutdownState shutdownState) {
             this.handler = handler;
             this.registry = registry;
             this.runtime = runtime;
+            this.shutdownState = shutdownState;
         }
 
         @Override public void channelRead(ChannelHandlerContext channel, Object message) {
@@ -116,11 +136,16 @@ final class PlaintextServer implements AutoCloseable {
         }
 
         private void beginRequest(ChannelHandlerContext channel, HttpRequest request) {
+            if (shutdownState.stopping()) {
+                channel.close();
+                return;
+            }
             if (!request.decoderResult().isSuccess()) {
                 channel.close();
                 return;
             }
             channel.channel().config().setAutoRead(false);
+            shutdownState.started();
             InboundBodyPublisher body = new InboundBodyPublisher(channel, HttpUtil.is100ContinueExpected(request));
             channel.channel().attr(InboundBodyPublisher.KEY).set(body);
             ResponseTransaction response = new ResponseTransaction();
@@ -128,18 +153,19 @@ final class PlaintextServer implements AutoCloseable {
             try {
                 handler.handle(context).run(runtime).whenComplete((ignored, failure) -> {
                     if (failure != null || response.committed().isEmpty()) {
-                        write(channel, HttpResponse.of(io.waveio.http.HttpStatus.INTERNAL_SERVER_ERROR), () -> finish(channel, false));
+                        write(channel, HttpResponse.of(io.waveio.http.HttpStatus.INTERNAL_SERVER_ERROR), () -> finish(channel, false, shutdownState));
                     } else {
-                        write(channel, response.committed().orElseThrow(), () -> finish(channel, HttpUtil.isKeepAlive(request)));
+                        write(channel, response.committed().orElseThrow(), () -> finish(channel, HttpUtil.isKeepAlive(request), shutdownState));
                     }
                 });
             } catch (Throwable failure) {
-                write(channel, HttpResponse.of(io.waveio.http.HttpStatus.INTERNAL_SERVER_ERROR), () -> finish(channel, false));
+                write(channel, HttpResponse.of(io.waveio.http.HttpStatus.INTERNAL_SERVER_ERROR), () -> finish(channel, false, shutdownState));
             }
         }
 
-        private static void finish(ChannelHandlerContext channel, boolean keepAlive) {
-            if (keepAlive && channel.channel().isActive()) {
+        private static void finish(ChannelHandlerContext channel, boolean keepAlive, ShutdownState shutdownState) {
+            shutdownState.completed();
+            if (keepAlive && !shutdownState.stopping() && channel.channel().isActive()) {
                 channel.channel().config().setAutoRead(true);
                 channel.read();
             } else {
@@ -180,6 +206,24 @@ final class PlaintextServer implements AutoCloseable {
             channel.writeAndFlush(outbound).addListener(future -> {
                 if (future.isSuccess()) { complete.run(); } else { channel.close(); }
             });
+        }
+    }
+
+    private static final class ShutdownState {
+        private final AtomicBoolean stopping = new AtomicBoolean();
+        private final AtomicInteger activeRequests = new AtomicInteger();
+
+        boolean stopping() { return stopping.get(); }
+        void beginStop() { stopping.set(true); }
+        void started() { activeRequests.incrementAndGet(); }
+        synchronized void completed() { activeRequests.decrementAndGet(); notifyAll(); }
+        synchronized void awaitQuiescence(Duration timeout) {
+            long deadline = System.nanoTime() + timeout.toNanos();
+            while (activeRequests.get() > 0) {
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0) { return; }
+                try { TimeUnit.NANOSECONDS.timedWait(this, remaining); } catch (InterruptedException interruption) { Thread.currentThread().interrupt(); return; }
+            }
         }
     }
 

@@ -1,0 +1,12 @@
+goal: "Gracefully stop the Netty transport and close all owned resources"
+keyresults:
+  - kr-1: "Stop closes the acceptor before it waits for active requests."
+  - kr-2: "After the explicit wait deadline, remaining channels and the execution runtime are closed."
+  - kr-3: "The real-socket suite passes with Netty paranoid leak detection enabled."
+rules:
+  - id: m5-06-stop-order
+    name: acceptor-closes-before-owned-resources
+    apply: "waveio-netty/src/main/java"
+    level: error
+    desc:
+      - "Graceful stop must reject new connections before waiting on active requests."

@@ -18,8 +18,8 @@
 | M2 | M1 | 完成 | Execution runtime |
 | M3 | M2 | 完成 | Task 與串流橋接 |
 | M4 | M3 | 完成 | HTTP 與 handler 組合 |
-| M5 | M4 | 進行中 | Netty HTTP server |
-| M6 | M5 | 未開始 | 應用開發體驗 |
+| M5 | M4 | 完成 | Netty HTTP server |
+| M6 | M5 | 進行中 | 應用開發體驗 |
 | M7 | M6 | 未開始 | 首版發布門檻 |
 | M8 | M7 | 未開始 | 首版後擴充 |
 

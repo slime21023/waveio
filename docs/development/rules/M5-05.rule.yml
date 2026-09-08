@@ -1,0 +1,13 @@
+goal: "Secure and bound the Netty HTTP/1.1 transport"
+keyresults:
+  - kr-1: "TLS uses the Netty SslContext handler before HTTP decoding."
+  - kr-2: "HTTP initial-line, header, chunk, and idle limits are explicit and positive."
+  - kr-3: "100 Continue is sent only when request-body demand starts."
+  - kr-4: "Chunked inbound bodies work and malformed decoder results close the connection."
+rules:
+  - id: m5-05-explicit-transport-bounds
+    name: decoder-and-idle-bounds-are-required
+    apply: "waveio-netty/src/main/java"
+    level: error
+    desc:
+      - "The transport must not construct an HTTP decoder or read timeout with implicit limits."

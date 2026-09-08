@@ -18,6 +18,8 @@ import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.codec.http.HttpUtil;
+import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.netty.handler.ssl.SslContext;
 import io.netty.buffer.Unpooled;
 import io.netty.util.ReferenceCountUtil;
 import io.waveio.execution.ExecutionConfig;
@@ -37,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Flow;
+import java.util.concurrent.TimeUnit;
 
 /** Temporary package-private plaintext server used while the public facade is built in M6. */
 @SuppressWarnings("deprecation")
@@ -46,7 +49,7 @@ final class PlaintextServer implements AutoCloseable {
     private final ExecutionRuntime runtime;
     private final Channel channel;
 
-    private PlaintextServer(Handler handler, Registry registry, ExecutionConfig config) {
+    private PlaintextServer(Handler handler, Registry registry, ExecutionConfig config, TransportConfig transportConfig, SslContext sslContext) {
         bossGroup = new NioEventLoopGroup(1);
         workerGroup = new NioEventLoopGroup();
         runtime = ExecutionRuntime.create(config);
@@ -54,7 +57,9 @@ final class PlaintextServer implements AutoCloseable {
             channel = new ServerBootstrap().group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override protected void initChannel(SocketChannel socket) {
-                            socket.pipeline().addLast(new HttpServerCodec());
+                            if (sslContext != null) { socket.pipeline().addLast(sslContext.newHandler(socket.alloc())); }
+                            socket.pipeline().addLast(new ReadTimeoutHandler(transportConfig.idleTimeout().toNanos(), TimeUnit.NANOSECONDS));
+                            socket.pipeline().addLast(new HttpServerCodec(transportConfig.maximumInitialLineLength(), transportConfig.maximumHeaderSize(), transportConfig.maximumChunkSize()));
                             socket.pipeline().addLast(new RequestHandler(handler, registry, runtime));
                         }
                     }).bind(0).syncUninterruptibly().channel();
@@ -66,8 +71,12 @@ final class PlaintextServer implements AutoCloseable {
         }
     }
 
-    static PlaintextServer start(Handler handler, Registry registry, ExecutionConfig config) {
-        return new PlaintextServer(Objects.requireNonNull(handler, "handler"), Objects.requireNonNull(registry, "registry"), Objects.requireNonNull(config, "config"));
+    static PlaintextServer start(Handler handler, Registry registry, ExecutionConfig config, TransportConfig transportConfig) {
+        return new PlaintextServer(Objects.requireNonNull(handler, "handler"), Objects.requireNonNull(registry, "registry"), Objects.requireNonNull(config, "config"), Objects.requireNonNull(transportConfig, "transportConfig"), null);
+    }
+
+    static PlaintextServer startTls(Handler handler, Registry registry, ExecutionConfig config, TransportConfig transportConfig, SslContext sslContext) {
+        return new PlaintextServer(Objects.requireNonNull(handler, "handler"), Objects.requireNonNull(registry, "registry"), Objects.requireNonNull(config, "config"), Objects.requireNonNull(transportConfig, "transportConfig"), Objects.requireNonNull(sslContext, "sslContext"));
     }
 
     int port() { return ((InetSocketAddress) channel.localAddress()).getPort(); }
@@ -107,8 +116,12 @@ final class PlaintextServer implements AutoCloseable {
         }
 
         private void beginRequest(ChannelHandlerContext channel, HttpRequest request) {
+            if (!request.decoderResult().isSuccess()) {
+                channel.close();
+                return;
+            }
             channel.channel().config().setAutoRead(false);
-            InboundBodyPublisher body = new InboundBodyPublisher(channel);
+            InboundBodyPublisher body = new InboundBodyPublisher(channel, HttpUtil.is100ContinueExpected(request));
             channel.channel().attr(InboundBodyPublisher.KEY).set(body);
             ResponseTransaction response = new ResponseTransaction();
             Context context = new RequestContext(toWaveRequest(request, io.waveio.http.Body.of(body)), registry, response);
@@ -230,13 +243,15 @@ final class PlaintextServer implements AutoCloseable {
     private static final class InboundBodyPublisher implements Flow.Publisher<ByteBuffer> {
         static final io.netty.util.AttributeKey<InboundBodyPublisher> KEY = io.netty.util.AttributeKey.valueOf("waveio.inbound-body");
         private final ChannelHandlerContext channel;
+        private final boolean sendContinue;
         private Flow.Subscriber<? super ByteBuffer> subscriber;
         private long demand;
         private boolean subscribed;
         private boolean completed;
         private boolean readInFlight;
+        private boolean continueSent;
 
-        InboundBodyPublisher(ChannelHandlerContext channel) { this.channel = channel; }
+        InboundBodyPublisher(ChannelHandlerContext channel, boolean sendContinue) { this.channel = channel; this.sendContinue = sendContinue; }
 
         @Override public synchronized void subscribe(Flow.Subscriber<? super ByteBuffer> candidate) {
             Objects.requireNonNull(candidate, "subscriber");
@@ -311,7 +326,13 @@ final class PlaintextServer implements AutoCloseable {
         private void scheduleRead() {
             if (!completed && demand > 0 && !readInFlight) {
                 readInFlight = true;
-                channel.executor().execute(channel::read);
+                if (sendContinue && !continueSent) {
+                    continueSent = true;
+                    channel.writeAndFlush(new DefaultFullHttpResponse(io.netty.handler.codec.http.HttpVersion.HTTP_1_1, HttpResponseStatus.CONTINUE))
+                            .addListener(future -> { if (future.isSuccess()) { channel.read(); } else { channel.close(); } });
+                } else {
+                    channel.executor().execute(channel::read);
+                }
             }
         }
 

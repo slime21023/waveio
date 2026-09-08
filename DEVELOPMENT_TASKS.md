@@ -46,7 +46,7 @@
 | M5-02 | M5-01 | 完成 | 實作 plaintext bootstrap、acceptor、connection lifecycle、首個 request-response path。 | `PlaintextServerTest` real-socket test 與 reactor test 通過；見 `docs/development/M5.md`。 |
 | M5-03 | M5-02 | 完成 | 實作 inbound body→Flow、demand-driven read control、所有 `ByteBuf` release path。 | `PlaintextServerTest` real-socket POST body test 與 reactor test 通過；見 `docs/development/M5.md`。 |
 | M5-04 | M5-03 | 完成 | 實作 outbound writer、commit/flush、write failure、keep-alive、response ordering。 | `PlaintextServerTest` chunked response 與 same-connection ordering tests、reactor test 通過；見 `docs/development/M5.md`。 |
-| M5-05 | M5-04 | 未開始 | 實作 TLS、limits、timeouts、Expect 100、chunked body、protocol failures。 | TLS/protocol tests。 |
+| M5-05 | M5-04 | 完成 | 實作 TLS、limits、timeouts、Expect 100、chunked body、protocol failures。 | 8 個 Netty real-socket TLS/protocol tests 與 reactor test 通過；見 `docs/development/M5.md`。 |
 | M5-06 | M5-05 | 未開始 | 實作 graceful shutdown、real-socket fixture、paranoid leak-detection gate；僅支援 NIO TCP、HTTP/1.1、TLS。 | socket/leak gate。 |
 | M6-01 | M5 | 未開始 | 建立 `waveio-server`／`io.waveio.server` 與 immutable server、limit、timeout、execution assembly specs。 | API tests。 |
 | M6-02 | M6-01 | 未開始 | 實作 `WaveServer.start`、`RunningServer.address`、`RunningServer.stop(Duration)` 與 runtime ownership。 | lifecycle integration tests。 |

@@ -2,6 +2,7 @@ package io.waveio.server;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.waveio.execution.ExecutionConfig;
 import io.waveio.http.HttpResponse;
@@ -16,6 +17,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class ServerSpecTest {
@@ -39,5 +42,27 @@ class ServerSpecTest {
             assertTrue(input.readLine().startsWith("HTTP/1.1 200 OK"));
             server.stop(spec.timeouts().shutdownGrace());
         }
+    }
+
+    @Test void startsInOrderAndStopsInReverseOrder() {
+        List<String> events = new ArrayList<>();
+        Service first = new RecordingService("first", events, false);
+        Service second = new RecordingService("second", events, false);
+        ServiceLifecycle lifecycle = ServiceLifecycle.start(List.of(first, second));
+        lifecycle.close();
+        assertEquals(List.of("start:first", "start:second", "stop:second", "stop:first"), events);
+    }
+
+    @Test void rollsBackStartedServicesWhenInitializationFails() {
+        List<String> events = new ArrayList<>();
+        assertThrows(IllegalStateException.class, () -> ServiceLifecycle.start(List.of(new RecordingService("first", events, false), new RecordingService("second", events, true))));
+        assertEquals(List.of("start:first", "start:second", "stop:first"), events);
+    }
+
+    private static final class RecordingService implements Service {
+        private final String name; private final List<String> events; private final boolean failStart;
+        RecordingService(String name, List<String> events, boolean failStart) { this.name = name; this.events = events; this.failStart = failStart; }
+        @Override public void start() { events.add("start:" + name); if (failStart) { throw new IllegalStateException("start failure"); } }
+        @Override public void stop() { events.add("stop:" + name); }
     }
 }

@@ -1,0 +1,12 @@
+goal: "Own application service lifecycle before accepting traffic"
+keyresults:
+  - kr-1: "Services start in registration order before transport creation."
+  - kr-2: "Shutdown and failed initialization stop started services in reverse order."
+  - kr-3: "Rollback failures are retained as suppressed failures."
+rules:
+  - id: m6-03-services-before-bind
+    name: service-initialization-precedes-accepting-traffic
+    apply: "waveio-server/src/main/java"
+    level: error
+    desc:
+      - "WaveServer must finish service startup before constructing the transport."

@@ -50,7 +50,7 @@
 | M5-06 | M5-05 | 完成 | 實作 graceful shutdown、real-socket fixture、paranoid leak-detection gate；僅支援 NIO TCP、HTTP/1.1、TLS。 | 9 個 real-socket tests 與 paranoid leak-detection reactor test 通過；見 `docs/development/M5.md`。 |
 | M6-01 | M5 | 完成 | 建立 `waveio-server`／`io.waveio.server` 與 immutable server、limit、timeout、execution assembly specs。 | `ServerSpecTest` 與 server facade reactor test 通過；見 `docs/development/M6.md`。 |
 | M6-02 | M6-01 | 完成 | 實作 `WaveServer.start`、`RunningServer.address`、`RunningServer.stop(Duration)` 與 runtime ownership。 | public-facade real-socket lifecycle test 與 reactor test 通過；見 `docs/development/M6.md`。 |
-| M6-03 | M6-02 | 未開始 | 實作 `Service` lifecycle：順序啟動、反向關閉、init failure rollback。 | lifecycle tests。 |
+| M6-03 | M6-02 | 完成 | 實作 `Service` lifecycle：順序啟動、反向關閉、init failure rollback。 | lifecycle order／rollback tests 與 server reactor test 通過；見 `docs/development/M6.md`。 |
 | M6-04 | M6-02 | 未開始 | 實作 text/bytes helpers 與 exact-class `Renderer<T>` SPI；不內建 JSON。 | rendering tests。 |
 | M6-05 | M6-02 | 未開始 | 實作 immutable observation events、bounded observer dispatcher、failure metrics。 | observer tests。 |
 | M6-06 | M6-03, M6-04 | 未開始 | 建立 `waveio-testkit`、embedded fixture、最小 API/blocking/streaming examples。 | executable examples。 |

@@ -14,4 +14,8 @@ public final class RoutingResponses {
         }
         return HttpResponse.of(HttpStatus.NOT_FOUND);
     }
+    /** Returns GET response metadata with a deliberately suppressed HEAD body. */
+    public static HttpResponse suppressBodyForHead(HttpResponse response) {
+        Objects.requireNonNull(response, "response"); return new HttpResponse(response.status(), response.headers(), Body.empty());
+    }
 }

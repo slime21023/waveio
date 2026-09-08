@@ -54,7 +54,7 @@
 | M6-04 | M6-02 | 完成 | 實作 text/bytes helpers 與 exact-class `Renderer<T>` SPI；不內建 JSON。 | renderer exact-match tests 與 server reactor test 通過；見 `docs/development/M6.md`。 |
 | M6-05 | M6-02 | 完成 | 實作 immutable observation events、bounded observer dispatcher、failure metrics。 | observer dispatch tests 與 server reactor test 通過；見 `docs/development/M6.md`。 |
 | M6-06 | M6-03, M6-04 | 完成 | 建立 `waveio-testkit`、embedded fixture、最小 API/blocking/streaming examples。 | embedded real-socket test 與 reactor test 通過；見 `docs/examples.md`、`docs/development/M6.md`。 |
-| M6-07 | M6-05, M6-06 | 未開始 | 完成 public-facade、lifecycle、example consistency gate；所有 server capacities 與 timeouts 必須顯式。 | wrapper `verify`。 |
+| M6-07 | M6-05, M6-06 | 完成 | 完成 public-facade、lifecycle、example consistency gate；所有 server capacities 與 timeouts 必須顯式。 | full wrapper `verify` 與 public embedded-server test 通過；見 `docs/development/M6.md`。 |
 | M7-01 | M6 | 未開始 | 固定 public/internal boundary、0.x SemVer、Java 25 support policy、API baseline。 | API compatibility check。 |
 | M7-02 | M7-01 | 未開始 | 建立 reproducible JAR/sources/javadoc/checksum/LICENSE/NOTICE/dependency report distribution。 | clean distribution verification。 |
 | M7-03 | M7-02 | 未開始 | 從 packaged artifacts 編譯與執行最小服務，不使用 reactor classpath。 | clean consumer test。 |
@@ -65,4 +65,4 @@
 
 ## 目前 Gate 與下一步
 
-P0–M4 已完成：M0 重置內容、定位文件、backlog 與 ignore 規則已由單一基線 commit 固定；M1–M4 的 Ubuntu／Windows CI gate 都已通過。下一個可開始的工作是 M5-01：建立鎖定 Netty 版本的 transport module。
+P0–M6 已完成：由 foundation 至 public server facade、testkit 與範例均已有實作及 reactor 驗證。下一個可開始的工作是 M7-01：固定公開／內部邊界與 0.x API compatibility baseline。

@@ -13,6 +13,7 @@
     <module>waveio-task</module>
     <module>waveio-http</module>
     <module>waveio-netty</module>
+    <module>waveio-server</module>
   </modules>
 
   <properties>

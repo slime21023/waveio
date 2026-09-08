@@ -18,4 +18,10 @@ class InMemoryExchangeTest {
         Handler response = context -> { context.respond(HttpResponse.of(HttpStatus.OK)); return Task.success(null); };
         assertEquals(HttpStatus.OK, InMemoryExchange.execute(request, Registry.empty(), List.of(delegated, response), InMemoryExchange.defaultConfig()).status());
     }
+    @Test void routerInvokesHandlerWithPathParametersAndPolicyResponses() throws Exception {
+        Handler item = context -> { assertEquals("42", context.pathParameters().get("id")); context.respond(HttpResponse.of(HttpStatus.OK)); return Task.success(null); };
+        Router router = new Router(RouteTable.builder().route(HttpMethod.GET, "/items/{id}", item).build());
+        assertEquals(HttpStatus.OK, InMemoryExchange.execute(new HttpRequest(HttpMethod.GET, RequestUri.parse("/items/42"), Headers.empty()), Registry.empty(), router, InMemoryExchange.defaultConfig()).status());
+        assertEquals(HttpStatus.NOT_FOUND, InMemoryExchange.execute(new HttpRequest(HttpMethod.GET, RequestUri.parse("/missing"), Headers.empty()), Registry.empty(), router, InMemoryExchange.defaultConfig()).status());
+    }
 }

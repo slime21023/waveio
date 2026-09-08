@@ -3,11 +3,10 @@ package io.waveio.server;
 import java.time.Duration;
 import java.util.Objects;
 
-/** Explicit positive timeout values for server execution, connection idleness, and shutdown. */
-public record ServerTimeouts(Duration requestDeadline, Duration idleTimeout, Duration shutdownGrace) {
+/** Explicit positive timeout values for connection idleness and shutdown. */
+public record ServerTimeouts(Duration idleTimeout, Duration shutdownGrace) {
     /** Validates all timeout values. */
     public ServerTimeouts {
-        requestDeadline = positive(requestDeadline, "requestDeadline");
         idleTimeout = positive(idleTimeout, "idleTimeout");
         shutdownGrace = positive(shutdownGrace, "shutdownGrace");
     }

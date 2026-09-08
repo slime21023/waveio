@@ -4,15 +4,16 @@ WaveIO 是以 **Java 25+** 開發、承接 **Ratpack 設計理念**的輕量 HTT
 面向希望以明確、可組合的非同步 API 建立 HTTP 服務的 Java 後端開發者。
 
 目前已完成單一 `io.waveio:waveio` Java 25 artifact，內含 execution、Task／Flow、HTTP／handler、Netty
-HTTP/1.1 transport、public server facade 與 embedded testkit；發布套件仍待 M7 驗證。舊實作、
-測試、設計與封存已移除，不保留舊 WaveIO 或 Ratpack API 相容層。
+HTTP/1.1 transport、public server facade 與 embedded testkit；M7 release gates 已通過，正式 GitHub
+Release 尚未建立。舊實作、測試、設計與封存已移除，不保留舊 WaveIO 或 Ratpack API 相容層。
 
 ## 設計方向
 
 - **受管理的非同步執行**：execution 管理一次邏輯操作的 context、錯誤、取消及清理；
   精簡的 `Task<T>` API 負責單一結果的非同步組合。
 - **可組合的 HTTP 處理**：以 handler、context、chain、routing 與型別化 registry
-  組織應用，支援下一個 handler 的委派及局部子鏈。
+  組織應用；一般應用以 `WaveApplication`、`Routes`、`Endpoint` 與 `Middleware` 宣告，
+  需要細部控制時才使用 handler、context、chain 與局部子鏈。
 - **現代 Java**：使用 Java 25 正式特性，包括 records、sealed types、pattern matching、
   虛擬執行緒與 `ScopedValue`；核心不要求啟用 preview。
 - **明確的 blocking 邊界**：透過虛擬執行緒橋接 blocking 工作，完成後回到所屬 execution；
@@ -42,9 +43,10 @@ preview API 未排入首版。核心不提供 ORM、完整 DI 容器或通用 re
 4. [開發任務 backlog](DEVELOPMENT_TASKS.md)：可獨立審查的任務、key results 與驗證證據。
 5. [API 相容性基線](docs/API_COMPATIBILITY.md)：0.1.0 public boundary 與 Java 支援政策。
 
-目前已完成 M6 的 public server facade、service lifecycle、response helpers、observation hooks
-及 embedded testkit；最小 API、blocking、streaming 使用說明見 [範例](docs/examples.md)。下一步為
-M7 發布驗證。各階段的可重現驗證證據位於 `docs/development/`；release dry-run 與附件清單見
+目前的 public facade 以 `WaveApplication` 組裝 routes、registry、services、observers 與 error policy，
+再以 `WaveServer.start(port, application)` 的 DEVELOPMENT profile 啟動。需要部署級調校時，使用
+`ServerProfile` 檢視既定有界設定，或傳入完整 `ServerOptions`。最小 API、blocking、streaming 使用說明見
+[範例](docs/examples.md)。各階段的可重現驗證證據位於 `docs/development/`；release dry-run 與附件清單見
 [0.1.0 release notes](docs/releases/0.1.0.md)。
 版本、依賴版本及發布日期尚未設定；不沿用舊版本的測試數字或效能宣稱。
 

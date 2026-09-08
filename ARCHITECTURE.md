@@ -1,7 +1,7 @@
 # 架構與 API 方向
 
-本文件定義 WaveIO 的目標架構；實作進度只記錄在 [ROADMAP.md](ROADMAP.md)。
-所有公開型別名稱與範例均為設計草案，不代表已有套件或相容性承諾。
+本文件定義 WaveIO 的目前架構；實作進度只記錄在 [ROADMAP.md](ROADMAP.md)，public boundary
+記錄在 [API compatibility baseline](docs/API_COMPATIBILITY.md)。
 
 ## 產品邊界與設計來源
 
@@ -62,7 +62,8 @@ runtime 必須在每次 segment 及受管理的 blocking 工作入口明確綁�
 `Task<T>` 是延遲啟動的計算描述。建立及組合 Task 不執行工作；由受管理的終端入口啟動，
 每次啟動建立獨立的執行狀態，不隱含快取或共享結果。
 
-公開能力涵蓋值轉換、Task 串接、錯誤恢復、timeout、清理與 CompletionStage 互通。
+公開能力涵蓋值轉換、Task 串接、錯誤恢復、timeout、清理與 CompletionStage 互通。`Task.start(runtime)`
+會回傳 `TaskHandle`；其 completion 可供觀察，且取消只影響該次啟動所建立的 execution。
 WaveIO 管理的 continuation 必須回到所屬 execution，不直接在任意外部 completion
 執行緒上存取 request 狀態。
 
@@ -90,6 +91,21 @@ Task 表示單一結果，Flow 表示多筆資料；不建立完整 reactive ope
 已持有的 buffer。Buffered body 是有上限的串流收集操作，不能形成第二套 request runtime。
 
 ## HTTP 組合與網路整合
+
+### Application facade 與受控擴充
+
+`WaveApplication` 是一般使用者的組裝入口。其 builder 只開放五個受控方向：registry services、
+routes（含 middleware）、server lifecycle services、observers 與 sole error handler。`WaveExtension`
+可依註冊順序套用同一組 builder API，因此擴充不必取得 Netty、execution dispatcher 或 response
+transaction 的存取權。
+
+高階 `Endpoint` 接收唯讀 `EndpointContext` 並回傳 `Task<HttpResponse>`；它不能提交第二個 response，
+也不需呼叫 chain。`Routes` 會在 Task 成功後一次性提交 response，並在提交前交由 `ErrorHandler` 轉換
+endpoint 失敗。低階 `Handler`／`Context`／`Chain` 保留給 middleware adapter、測試工具與需要委派或
+插入子鏈的進階情境。
+
+`WaveServer.start(port, application)` 使用 DEVELOPMENT profile。`TESTING` 與 `PRODUCTION` profile
+同樣是具名、可檢視、固定有界的 `ServerOptions`；部署方可改以完整 options 明確覆寫，沒有隱性無界配置。
 
 `Handler` 使用 `Context` 存取 request、response、registry 與 execution；`Chain` 組合
 handler。流程可以產生回應、委派下一個 handler，或插入局部子鏈。非同步工作納入 Task

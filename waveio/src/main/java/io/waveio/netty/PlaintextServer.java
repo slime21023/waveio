@@ -100,6 +100,9 @@ public final class PlaintextServer implements AutoCloseable {
     /** Returns the bound local TCP port. */
     public int port() { return ((InetSocketAddress) channel.localAddress()).getPort(); }
 
+    /** Returns the actual bound local TCP address. */
+    public InetSocketAddress address() { return (InetSocketAddress) channel.localAddress(); }
+
     /** Stops accepting traffic, waits for active requests, then closes transport resources. */
     public void stop(Duration timeout) {
         Objects.requireNonNull(timeout, "timeout");

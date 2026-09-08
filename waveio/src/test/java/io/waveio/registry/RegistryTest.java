@@ -28,6 +28,17 @@ class RegistryTest {
     }
 
     @Test
+    void classConveniencesUseTheSameStructuralKeys() {
+        Registry registry = Registry.builder()
+                .bind(String.class, "plain")
+                .bind(String.class, "named", "qualified")
+                .build();
+
+        assertEquals("plain", registry.get(String.class));
+        assertEquals("qualified", registry.get(String.class, "named"));
+    }
+
+    @Test
     void overlayPrefersArgumentAndAllowsNestedScopeRestoration() {
         Key<String> key = Key.of(String.class, "value");
         Registry root = Registry.builder().bind(key, "root").build();

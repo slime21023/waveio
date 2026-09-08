@@ -5,6 +5,9 @@ import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** A managed serial execution with context available only inside its segments. */
@@ -16,12 +19,19 @@ public final class Execution {
     private final CompletableFuture<ExecutionState> completion = new CompletableFuture<>();
     private final ExecutionRef ref = new ExecutionRef(this);
     private final CleanupFailureObserver cleanupFailureObserver;
+    private final ScheduledExecutorService scheduler;
     private final ArrayDeque<Runnable> cleanupActions = new ArrayDeque<>();
     private Runnable cancelDeadline = () -> { };
 
     Execution(SerialSegmentDispatcher dispatcher, CleanupFailureObserver cleanupFailureObserver) {
+        this(dispatcher, cleanupFailureObserver, null);
+    }
+
+    Execution(SerialSegmentDispatcher dispatcher, CleanupFailureObserver cleanupFailureObserver,
+            ScheduledExecutorService scheduler) {
         this.dispatcher = Objects.requireNonNull(dispatcher, "dispatcher");
         this.cleanupFailureObserver = Objects.requireNonNull(cleanupFailureObserver, "cleanupFailureObserver");
+        this.scheduler = scheduler;
     }
 
     /** Returns the current execution when called inside a managed segment. */
@@ -67,6 +77,29 @@ public final class Execution {
     /** Returns a callback-safe reference to this execution. */
     public ExecutionRef ref() {
         return ref;
+    }
+
+    /** Schedules a callback through this execution's runtime-owned scheduler. */
+    public void schedule(java.time.Duration delay, Runnable callback) {
+        Objects.requireNonNull(delay, "delay");
+        Objects.requireNonNull(callback, "callback");
+        if (delay.isNegative() || delay.isZero()) {
+            throw new IllegalArgumentException("delay must be positive");
+        }
+        if (state().isTerminal()) {
+            return;
+        }
+        if (scheduler == null) {
+            java.util.concurrent.CompletableFuture.delayedExecutor(delay.toNanos(), TimeUnit.NANOSECONDS)
+                    .execute(() -> ref.execute(callback));
+            return;
+        }
+        ScheduledFuture<?> future = scheduler.schedule(() -> ref.execute(callback), delay.toNanos(), TimeUnit.NANOSECONDS);
+        try {
+            onCleanup(() -> future.cancel(false));
+        } catch (IllegalStateException ignored) {
+            future.cancel(false);
+        }
     }
 
     ExecutionState state() {

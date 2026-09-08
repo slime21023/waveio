@@ -34,7 +34,7 @@ public final class ExecutionRuntime implements AutoCloseable {
     /** Starts an execution and schedules its first managed segment. */
     public ExecutionHandle start(Consumer<Execution> initialSegment) {
         Objects.requireNonNull(initialSegment, "initialSegment");
-        Execution execution = new Execution(new SerialSegmentDispatcher(executor, config.queueCapacity()), failure -> { });
+        Execution execution = new Execution(new SerialSegmentDispatcher(executor, config.queueCapacity()), failure -> { }, deadlineScheduler);
         ExecutionHandle handle = new ExecutionHandle(execution);
         var deadline = deadlineScheduler.schedule(execution::timeout, config.deadline().toNanos(), TimeUnit.NANOSECONDS);
         execution.setDeadlineCancellation(() -> deadline.cancel(false));

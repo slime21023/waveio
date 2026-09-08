@@ -8,5 +8,9 @@
 - 提供 typed registry、managed execution、lazy Task、bounded blocking 與 JDK Flow bridge。
 - 提供 HTTP handler/routing、Netty HTTP/1.1/TLS transport、public `WaveServer` facade 與 testkit。
 - 提供 distribution、consumer verification、release gates、reliability/benchmark runners。
+- public facade 收斂為 `WaveApplication`、具名 `ServerProfile`／`ServerOptions`、`Routes`／`Endpoint`，
+  並提供 `TaskHandle` 作為每次 Task 啟動的取消入口。
 
-此為首個 preview，沒有先前 WaveIO API migration path。
+此為首個 preview，沒有已發布的 WaveIO API migration path。開發中曾使用的 `ServerSpec` 已移除；改以
+`WaveApplication.builder().routes(...)` 建立 application，再使用 `WaveServer.start(port, application)` 或
+含 `ServerOptions` 的 overload 啟動。

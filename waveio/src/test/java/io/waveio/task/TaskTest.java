@@ -2,6 +2,7 @@ package io.waveio.task;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.waveio.execution.ExecutionConfig;
 import io.waveio.execution.ExecutionRuntime;
@@ -42,6 +43,10 @@ class TaskTest {
                     .recover(failure -> 7)
                     .run(runtime).toCompletableFuture().get();
             assertEquals(7, recovered);
+            int recoveredWithTask = Task.<Integer>failure(new IllegalArgumentException("bad"))
+                    .recoverWith(failure -> Task.success(8))
+                    .run(runtime).toCompletableFuture().get();
+            assertEquals(8, recoveredWithTask);
         }
     }
 
@@ -76,6 +81,17 @@ class TaskTest {
             ExecutionException failure = assertThrows(ExecutionException.class,
                     () -> Task.<Integer>never().timeout(Duration.ofSeconds(1)).run(runtime).toCompletableFuture().get());
             assertEquals(io.waveio.execution.ExecutionDeadlineExceededException.class, failure.getCause().getClass());
+        }
+    }
+
+    @Test
+    void taskHandleCancelsItsOwningExecution() throws Exception {
+        try (ExecutionRuntime runtime = ExecutionRuntime.create(new ExecutionConfig(4, 1, Duration.ofSeconds(1)))) {
+            TaskHandle<Integer> handle = Task.<Integer>never().start(runtime);
+            assertTrue(handle.cancel());
+            ExecutionException failure = assertThrows(ExecutionException.class,
+                    () -> handle.completion().toCompletableFuture().get());
+            assertEquals(io.waveio.execution.ExecutionCancelledException.class, failure.getCause().getClass());
         }
     }
 

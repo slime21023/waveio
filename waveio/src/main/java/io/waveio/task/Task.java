@@ -129,6 +129,26 @@ public final class Task<T> {
         }));
     }
 
+    /** Recovers a failed task by lazily starting a replacement task in the same execution. */
+    public Task<T> recoverWith(Function<? super Throwable, ? extends Task<T>> recovery) {
+        Objects.requireNonNull(recovery, "recovery");
+        return new Task<>((execution, callback) -> start(execution, new Callback<>() {
+            @Override
+            public void succeed(T value) {
+                callback.succeed(value);
+            }
+
+            @Override
+            public void fail(Throwable failure) {
+                try {
+                    Objects.requireNonNull(recovery.apply(failure), "recovery task").start(execution, callback);
+                } catch (Throwable recoveryFailure) {
+                    callback.fail(recoveryFailure);
+                }
+            }
+        }));
+    }
+
     /** Fails the result if it has not completed before the supplied duration. */
     public Task<T> timeout(Duration duration) {
         Objects.requireNonNull(duration, "duration");
@@ -137,13 +157,16 @@ public final class Task<T> {
         }
         return new Task<>((execution, callback) -> {
             AtomicBoolean delivered = new AtomicBoolean();
-            execution.onCleanup(() -> delivered.set(true));
-            CompletableFuture.delayedExecutor(duration.toNanos(), java.util.concurrent.TimeUnit.NANOSECONDS).execute(
-                    () -> execution.ref().execute(() -> {
+            try {
+                execution.onCleanup(() -> delivered.set(true));
+            } catch (IllegalStateException ignored) {
+                return;
+            }
+            execution.schedule(duration, () -> {
                         if (delivered.compareAndSet(false, true)) {
                             callback.fail(new TimeoutException("task timeout exceeded"));
                         }
-                    }));
+                    });
             start(execution, once(delivered, callback));
         });
     }
@@ -174,8 +197,8 @@ public final class Task<T> {
         }));
     }
 
-    /** Starts this task in a new managed execution and returns its result stage. */
-    public CompletionStage<T> run(ExecutionRuntime runtime) {
+    /** Starts this task in a new managed execution and returns its cancellable handle. */
+    public TaskHandle<T> start(ExecutionRuntime runtime) {
         Objects.requireNonNull(runtime, "runtime");
         CompletableFuture<T> result = new CompletableFuture<>();
         AtomicReference<Throwable> deliveredFailure = new AtomicReference<>();
@@ -209,12 +232,17 @@ public final class Task<T> {
                         : new IllegalStateException("execution failed before task delivered a failure"));
             }
         });
-        return result;
+        return new TaskHandle<>(result, handle);
+    }
+
+    /** Starts this task and returns only its result stage. */
+    public CompletionStage<T> run(ExecutionRuntime runtime) {
+        return start(runtime).completion();
     }
 
     /** Exports this task as a stage started in a new managed execution. */
     public CompletionStage<T> toStage(ExecutionRuntime runtime) {
-        return run(runtime);
+        return start(runtime).completion();
     }
 
     void start(Execution execution, Callback<? super T> callback) {

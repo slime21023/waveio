@@ -17,6 +17,16 @@
 這個 module/export inventory 是 M7 API compatibility check 的 baseline，新增或移除 exports 都必須更新
 本文件並在 changelog 說明。
 
+## 目前 facade 基線
+
+0.1.0 preview 的 application 入口為 `WaveApplication.builder()`、`WaveServer.start(int, WaveApplication)`、
+`ServerProfile` 與 `ServerOptions`。HTTP 高階流程以 `Routes`、`Endpoint`、`Middleware`、`Next`、
+`EndpointContext` 和 `ErrorHandler` 組成；endpoint 回傳 `Task<HttpResponse>`。`Task.start(ExecutionRuntime)`
+回傳可取消的 `TaskHandle`。
+
+`ServerSpec` 已自 preview working tree 移除，沒有相容轉接層。直接使用 `Handler`、`Context`、`Chain`
+的低階 API 仍在 export package，但不是一般應用的建議起點。
+
 ## 0.x 規則
 
 - patch release 不移除、不改名、不改變既有 public API 的 binary/source contract。

@@ -32,6 +32,16 @@ public final class Registry {
         return key.type().cast(value);
     }
 
+    /** Looks up an eager service bound with its unqualified class key. */
+    public <T> T get(Class<T> type) {
+        return get(Key.of(type, type.getName()));
+    }
+
+    /** Looks up an eager service bound with its class and explicit qualifier. */
+    public <T> T get(Class<T> type, String name) {
+        return get(Key.of(type, name));
+    }
+
     /** Returns a snapshot in which {@code overlay} takes precedence over this registry. */
     public Registry overlay(Registry overlay) {
         Objects.requireNonNull(overlay, "overlay");
@@ -60,6 +70,16 @@ public final class Registry {
                 throw new IllegalArgumentException("duplicate registry binding for " + key);
             }
             return this;
+        }
+
+        /** Binds an eager service using its unqualified runtime class as the key. */
+        public <T> Builder bind(Class<T> type, T instance) {
+            return bind(Key.of(type, type.getName()), instance);
+        }
+
+        /** Binds an eager service using its runtime class and explicit qualifier. */
+        public <T> Builder bind(Class<T> type, String name, T instance) {
+            return bind(Key.of(type, name), instance);
         }
 
         /** Builds the immutable snapshot and permanently closes this builder. */

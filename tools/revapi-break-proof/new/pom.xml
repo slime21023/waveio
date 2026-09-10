@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.wavejava.tools</groupId>
+        <artifactId>revapi-break-proof</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>revapi-break-proof-new</artifactId>
+    <version>1.0.1</version>
+    <packaging>jar</packaging>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.revapi</groupId>
+                <artifactId>revapi-maven-plugin</artifactId>
+                <version>${revapi-maven-plugin.version}</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.revapi</groupId>
+                        <artifactId>revapi-java</artifactId>
+                        <version>${revapi-java.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.revapi</groupId>
+                        <artifactId>revapi-reporter-text</artifactId>
+                        <version>${revapi-maven-plugin.version}</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <oldArtifacts>
+                        <artifact>io.wavejava.tools:revapi-break-proof-old:1.0.0</artifact>
+                    </oldArtifacts>
+                    <newVersion>${project.version}</newVersion>
+                    <failOnUnresolvedArtifacts>true</failOnUnresolvedArtifacts>
+                    <failOnUnresolvedDependencies>true</failOnUnresolvedDependencies>
+                    <failCriticality>error</failCriticality>
+                    <analysisConfiguration>
+                        <revapi.java>
+                            <filter>
+                                <classes>
+                                    <regex>true</regex>
+                                    <include>
+                                        <item>io\.wavejava\.fixture\.PublicApi</item>
+                                    </include>
+                                </classes>
+                            </filter>
+                        </revapi.java>
+                    </analysisConfiguration>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>prove-breaking-removal-fails</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

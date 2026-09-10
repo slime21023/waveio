@@ -1,0 +1,20 @@
+# Maven build products
+target/
+**/target/
+
+# JVM crash and heap dumps
+*.hprof
+hs_err_pid*
+replay_pid*
+
+# IDE and editor state
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+
+# Operating-system files
+.DS_Store
+Thumbs.db

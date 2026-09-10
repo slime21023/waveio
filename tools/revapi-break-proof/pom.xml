@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.wavejava.tools</groupId>
+    <artifactId>revapi-break-proof</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <name>Wave Revapi breaking-change proof</name>
+    <description>Isolated expected-failure fixture for the Wave compatibility gate.</description>
+
+    <modules>
+        <module>old</module>
+        <module>new</module>
+    </modules>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>25</maven.compiler.release>
+        <maven.compiler-plugin.version>3.13.0</maven.compiler-plugin.version>
+        <revapi-maven-plugin.version>0.15.1</revapi-maven-plugin.version>
+        <revapi-java.version>0.28.2</revapi-java.version>
+    </properties>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven.compiler-plugin.version}</version>
+                    <configuration>
+                        <release>${maven.compiler.release}</release>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

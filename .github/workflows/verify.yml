@@ -1,0 +1,328 @@
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Java 25 verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Validate roadmap task schema
+        shell: pwsh
+        run: ./tools/roadmap/validate-roadmap.ps1
+
+      - name: Validate naming and API boundaries
+        shell: pwsh
+        run: ./tools/roadmap/validate-naming.ps1
+
+      - name: Verify
+        run: bash ./mvnw -B -ntp verify
+
+  transport:
+    name: Transport and leak verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Verify real transports with PARANOID leak detection
+        run: bash ./mvnw -B -ntp -pl wave -am verify -Ptransport
+
+  compatibility-profile-safety:
+    name: Compatibility profile safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Verify that unsafe compatibility baselines fail closed
+        shell: bash
+        run: |
+          expect_failure() {
+            local expected_message="$1"
+            shift
+            local output exit_status
+            set +e
+            output="$("$@" 2>&1)"
+            exit_status=$?
+            set -e
+            printf '%s\n' "$output"
+            if [ "$exit_status" -eq 0 ]; then
+              echo "expected command to fail: $*"
+              return 1
+            fi
+            if ! grep -Fq "$expected_message" <<<"$output"; then
+              echo "command failed for an unexpected reason; expected: $expected_message"
+              return 1
+            fi
+          }
+
+          expect_failure "Compatibility requires -Dwave.api.baseline" \
+            bash ./mvnw -B -ntp -pl wave -am validate -Pcompatibility
+          expect_failure "Compatibility baseline must be an immutable" \
+            bash ./mvnw -B -ntp -pl wave -am validate -Pcompatibility "-Dwave.api.baseline=io.wavejava:wave:0.1.0-SNAPSHOT"
+          expect_failure "Compatibility baseline must be an immutable" \
+            bash ./mvnw -B -ntp -pl wave -am validate -Pcompatibility "-Dwave.api.baseline=io.wavejava:wave:LATEST"
+          expect_failure "Compatibility baseline must be an immutable" \
+            bash ./mvnw -B -ntp -pl wave -am validate -Pcompatibility "-Dwave.api.baseline=io.wavejava:wave:RELEASE"
+          expect_failure "Compatibility baseline must be an immutable" \
+            bash ./mvnw -B -ntp -pl wave -am validate -Pcompatibility "-Dwave.api.baseline=io.wavejava:wave:0.1.0-LATEST"
+          expect_failure "Compatibility baseline must be an immutable" \
+            bash ./mvnw -B -ntp -pl wave -am validate -Pcompatibility "-Dwave.api.baseline=io.wavejava:wave:0.1.0-RELEASE"
+          expect_failure "Compatibility baseline must be an immutable" \
+            bash ./mvnw -B -ntp -pl wave -am validate -Pcompatibility "-Dwave.api.baseline=com.example:wave:1.0.0"
+          expect_failure "Compatibility baseline must be an immutable" \
+            bash ./mvnw -B -ntp -pl wave -am validate -Pcompatibility "-Dwave.api.baseline=io.wavejava:wave:1.0"
+          expect_failure "Failed to resolve old artifacts" \
+            bash ./mvnw -B -ntp -pl wave -am verify -Pcompatibility "-Dwave.api.baseline=io.wavejava:wave:9999.9999.9999"
+
+      - name: Prove that a binary member removal fails compatibility
+        shell: bash
+        run: |
+          set +e
+          output="$(bash ./mvnw -B -ntp -f tools/revapi-break-proof/pom.xml clean install 2>&1)"
+          exit_status=$?
+          set -e
+          printf '%s\n' "$output"
+          if [ "$exit_status" -eq 0 ]; then
+            echo "the deliberate binary removal must fail Revapi"
+            exit 1
+          fi
+          if ! grep -Fq "java.method.removed" <<<"$output"; then
+            echo "Revapi did not report the expected java.method.removed diagnostic"
+            exit 1
+          fi
+
+  consumer-examples:
+    name: Consumer examples
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WAVE_CONSUMER_VERSION: 0.9.0-rc.1
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Verify named-module consumers against local RC coordinate
+        shell: bash
+        run: |
+          if grep -R -n -E '^import io\.wavejava\.wave\.(runtime|netty|internal)' examples; then
+            echo 'consumer examples must not import implementation packages'
+            exit 1
+          fi
+          bash tools/consumer-verification/verify-consumer.sh
+
+      - name: Assemble and inspect RC distribution
+        shell: bash
+        run: |
+          bash ./mvnw -B -ntp -f tools/distribution/pom.xml clean package
+          archive=tools/distribution/target/wave-0.9.0-rc-distribution.zip
+          entries="$(jar tf "$archive")"
+          for required in \
+            lib/wave-0.1.0-SNAPSHOT.jar \
+            docs/operations-guide.md \
+            docs/migration-guide.md \
+            docs/security-dependency-report.md \
+            spec/wave-roadmap.md \
+            DISTRIBUTION.md; do
+            grep -Fxq "$required" <<<"$entries" || {
+              echo "distribution is missing $required"
+              exit 1
+            }
+          done
+          bash tools/distribution/create-sha256.sh "$archive"
+          test "$(cut -d' ' -f1 "$archive.sha256")" = "$(sha256sum "$archive" | cut -d' ' -f1)"
+          if bash tools/distribution/create-sha256.sh "$archive" "$archive"; then
+            echo 'sidecar helper accepted an archive-overwrite target' >&2
+            exit 1
+          fi
+          first_hash="$(sha256sum "$archive" | cut -d' ' -f1)"
+          bash ./mvnw -B -ntp -f tools/distribution/pom.xml clean package
+          second_hash="$(sha256sum "$archive" | cut -d' ' -f1)"
+          test "$first_hash" = "$second_hash" || {
+            echo "distribution archive is not reproducible"
+            exit 1
+          }
+
+      - name: Verify unsigned release inputs fail closed
+        shell: pwsh
+        run: |
+          $output = & pwsh -NoProfile -File ./tools/distribution/verify-release.ps1 `
+            -Archive target/wave-0.9.0-rc-distribution.zip `
+            -Sha256File target/missing-release.sha256 `
+            -Signature target/missing-release.sig `
+            -PublicKey target/missing-release-public.pem 2>&1
+          if ($LASTEXITCODE -eq 0 -or ($output -join "`n") -notmatch 'does not exist') {
+            throw 'unsigned release inputs were accepted'
+          }
+
+      - name: Verify signed release inputs and tamper rejection
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive=tools/distribution/target/wave-0.9.0-rc-distribution.zip
+          fixture=tools/distribution/target/ci-release-verification
+          trap 'rm -rf "$fixture"' EXIT
+          mkdir -p "$fixture"
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
+            -out "$fixture/release-private.pem" 2>/dev/null
+          openssl rsa -in "$fixture/release-private.pem" -pubout \
+            -out "$fixture/release-public.pem" 2>/dev/null
+          sha256sum "$archive" | cut -d' ' -f1 > "$fixture/archive.sha256"
+          openssl dgst -sha256 -sign "$fixture/release-private.pem" \
+            -out "$fixture/archive.sig" "$archive"
+          pwsh -NoProfile -File ./tools/distribution/verify-release.ps1 \
+            -Archive target/wave-0.9.0-rc-distribution.zip \
+            -Sha256File target/ci-release-verification/archive.sha256 \
+            -Signature target/ci-release-verification/archive.sig \
+            -PublicKey target/ci-release-verification/release-public.pem
+          printf 'invalid-signature' > "$fixture/archive.sig"
+          set +e
+          invalid_signature_output="$(pwsh -NoProfile -File ./tools/distribution/verify-release.ps1 \
+            -Archive target/wave-0.9.0-rc-distribution.zip \
+            -Sha256File target/ci-release-verification/archive.sha256 \
+            -Signature target/ci-release-verification/archive.sig \
+            -PublicKey target/ci-release-verification/release-public.pem 2>&1)"
+          invalid_signature_status=$?
+          set -e
+          printf '%s\n' "$invalid_signature_output"
+          test "$invalid_signature_status" -ne 0
+          grep -Fq 'signature verification failed' <<<"$invalid_signature_output"
+          printf '%064d\n' 0 > "$fixture/archive.sha256"
+          set +e
+          tampered_output="$(pwsh -NoProfile -File ./tools/distribution/verify-release.ps1 \
+            -Archive target/wave-0.9.0-rc-distribution.zip \
+            -Sha256File target/ci-release-verification/archive.sha256 \
+            -Signature target/ci-release-verification/archive.sig \
+            -PublicKey target/ci-release-verification/release-public.pem 2>&1)"
+          tampered_status=$?
+          set -e
+          printf '%s\n' "$tampered_output"
+          test "$tampered_status" -ne 0
+          grep -Fq 'SHA-256 mismatch' <<<"$tampered_output"
+
+  reliability:
+    name: Scheduled reliability verification
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Run bounded reliability profile
+        run: bash ./mvnw -B -ntp -pl wave -am verify -Ptransport,reliability "-Dwave.reliability.waves=600"
+
+      - name: Build and run reproducible JMH baseline
+        shell: bash
+        run: |
+          bash ./mvnw -B -ntp -pl wave -am install -DskipTests
+          bash ./mvnw -B -ntp -f tools/wave-benchmarks/pom.xml clean package
+          bash tools/wave-benchmarks/run-baseline.sh 1 1 1
+
+      - name: Observe bounded Wave server heap and native memory
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_cp="tools/wave-benchmarks/target/classes:$(cat tools/wave-benchmarks/target/dependency-classpath.txt)"
+          java -XX:NativeMemoryTracking=summary \
+            -Dwave.benchmark.durationSeconds=120 -Dwave.benchmark.concurrency=32 \
+            -cp "$target_cp" io.wavejava.benchmarks.WaveServerReliabilityTarget \
+            > tools/wave-benchmarks/target/memory-server-result.txt 2>&1 &
+          benchmark_pid=$!
+          cleanup() {
+            kill "$benchmark_pid" 2>/dev/null || true
+            wait "$benchmark_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          ready=false
+          for attempt in $(seq 1 20); do
+            if ! kill -0 "$benchmark_pid" 2>/dev/null; then
+              cat tools/wave-benchmarks/target/memory-server-result.txt
+              echo 'Wave server memory target exited before attachment' >&2
+              exit 1
+            fi
+            if jcmd "$benchmark_pid" VM.native_memory summary >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then
+            echo 'Timed out waiting for Native Memory Tracking attachment' >&2
+            exit 1
+          fi
+          bash tools/wave-benchmarks/observe-memory.sh "$benchmark_pid" 30
+          memory_file=tools/wave-benchmarks/target/memory-observation.txt
+          sample_count="$(grep -c '^--- sample elapsed=' "$memory_file" || true)"
+          test "$sample_count" -eq 6 || {
+            echo "expected six 5-second memory samples, got $sample_count" >&2
+            exit 1
+          }
+          grep -Fq 'garbage-first heap' "$memory_file"
+          grep -Fq 'Native Memory Tracking:' "$memory_file"
+          wait "$benchmark_pid"
+          grep -Eq '^Wave server target completed requests=[1-9][0-9]* successes=[1-9][0-9]* failures=[1-9][0-9]*$' \
+            tools/wave-benchmarks/target/memory-server-result.txt
+
+      - name: Upload reliability evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wave-reliability-evidence
+          path: |
+            tools/wave-benchmarks/target/baseline-metadata.txt
+            tools/wave-benchmarks/target/baseline-result.txt
+            tools/wave-benchmarks/target/memory-observation.txt
+            tools/wave-benchmarks/target/memory-server-result.txt

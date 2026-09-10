@@ -30,7 +30,7 @@ flowchart LR
 - **Netty 隱藏於 transport**：公開 API 不出現 `Channel`、`ByteBuf`、EventLoop、Netty Future。
 - **同步業務邏輯、非阻塞 transport**：handler 在 Virtual Thread 執行；EventLoop 不執行使用者程式碼。
 - **資源有界**：所有 request、connection、queue、buffer、stream、timeout 都必須有明確 budget。
-- **可測試性是核心功能**：每個公開 extension point 都必須可在不開啟真實 socket 的情況下測試；協定行為仍要有真實 transport integration test。
+- **可測試性是核心功能**：每個公開 extension point 都必須可在不開啟真實 socket 的情況下測試；協定行為仍要有真實 transport integration test。測試 fixture 只存在 test source，不進入 production API。
 - **Groovy-later**：Groovy 是獨立語言 adapter，不滲入核心 API 或 1.0 關鍵路徑。
 
 ### 1.2 非目標
@@ -49,7 +49,9 @@ wave 1.0 不包含：
 
 ## 2. 使用者心智模型
 
-wave 只要求一般使用者理解四個概念。
+wave 的入門路徑只要求一般 application author 先理解四個 Core 概念；其他能力依需求按
+`Core → Web → Transport → Operations → Extension` 分層載入。完整的 Ponytail 審查、實際
+package 盤點與刪除/保留決策見 [`wave-architecture-review.md`](wave-architecture-review.md)。
 
 | 概念 | 職責 | 一般使用者何時接觸 |
 |---|---|---|
@@ -93,6 +95,16 @@ final class UserResource {
 ```
 
 `Resource` 只是組織 handler 的一般 Java 類別；wave 不要求繼承基底類別或使用 annotation。
+
+能力分層如下，避免把 0.4–0.9 的 optional capability 誤當成每個 endpoint 都必須理解的 API：
+
+```text
+Core       Wave / App / Server / Request / Response / Routes / Middleware
+Web        render / form / file / cookie
+Transport  client / Flow / multipart / SSE / WebSocket / HTTP/2
+Operations session / health / observability / resilience / config
+Extension  SPI + testing support
+```
 
 ---
 
@@ -145,6 +157,10 @@ exception mapper；commit 後的例外不可產生第二個 response，transport
 失敗 outcome。middleware 在 `onRequest` 或 `onRoute` commit response 時短路後續 pipeline，
 但所有已進入的 middleware 仍必須依反向順序收到 `onResponse`。
 
+`Response` 只公開狀態、headers、writer 與 lifecycle methods。bytes、JSON、problem、stream 與
+WebSocket upgrade 的 payload representation 收在未 export 的 `internal.http.ResponseData`，
+由 transport 透過單一 `ResponseDataReader` 讀取；application 不可依賴 transport body union。
+
 ---
 
 ## 4. 系統結構
@@ -157,28 +173,31 @@ wave 採單一 Maven module，但以 package-level architecture 維持單向依�
 flowchart BT
     api["api\nstable public contracts"]
     spi["spi\ncontrolled extensions"] --> api
-    support["codec · file · observability\npublic integrations"] --> api
     runtime["runtime\ninternal invocation engine"] --> api
     runtime --> spi
     netty["netty\ninternal server/client transport"] --> runtime
     netty --> api
     boot["Wave bootstrap"] --> netty
-    boot --> support
 ```
 
 | 區域 | 可依賴 | 相容性 |
 |---|---|---|
-| `api.*` | JDK 與明確公開的 SPI types | 1.x 穩定公開 API |
+| `api.*`（含 `api.render`、`api.form`、`api.file`） | JDK 與明確公開的 SPI types；`WaveClient`、`WebSocketClient`、`Response` 僅保留 private framework wiring | 1.x 穩定公開 API |
 | `spi.*` | `api.*` | 受控擴充 API，具遷移政策 |
-| `codec.*`、`file.*`、`observability.*` | `api.*`、`spi.*` | 公開 integration API |
 | `runtime.*` | `api.*`、`spi.*` | internal，不保證相容 |
 | `netty.*` | `runtime.*`、`api.*` | internal，不保證相容 |
 | `internal.*` | 任何必要內部 package | 永不公開 |
 
 JPMS module 名稱固定為 `io.wavejava.wave`，僅 export 根入口、`api.*` 與 `spi.*` package；
-`runtime.*`、`netty.*`、`internal.*`、`codec.*`、`file.*`、`observability.*` 不得 export。
-ArchUnit 會驗證上述依賴方向；0.8 起 Revapi 驗證 `api.*` 與 `spi.*` 的二進位相容性；Maven
+`runtime.*`、`netty.*`、`internal.*` 不得 export。需要穩定公開的
+file/form/render 型別一律置於 `api.*`。
+ArchUnit 會驗證上述依賴方向，並限制三個 facade 的 implementation wiring 不得進入 public
+signature；`validate-naming.ps1` 也會檢查 API package 的公開宣告。0.8 起 Revapi 驗證 `api.*` 與 `spi.*` 的二進位相容性；Maven
 Enforcer 固定 Java 與依賴收斂規則。
+
+正式 release 尚未存在時，`_spec/wave-api-compatibility.md` 是 source-level 的預發布 public-surface
+snapshot：`ModuleDescriptorTest` 必須逐項比對 export、`uses` 與 transitive `requires`。它不是 binary
+compatibility baseline；只有不可變、可追溯且已發布的 `io.wavejava:wave:<version>` artifact 才可餵給 Revapi。
 
 ### 4.2 專案資料夾結構
 
@@ -193,11 +212,12 @@ wave/
 │   │   ├── java/io/wavejava/wave/
 │   │   │   ├── Wave.java
 │   │   │   ├── api/
-│   │   │   │   ├── http/          # Request, Response, headers, cookies
+│   │   │   │   ├── http/          # Request, Response, headers, cookies, body state
 │   │   │   │   ├── routing/       # Routes, Handler, route metadata
 │   │   │   │   ├── middleware/
-│   │   │   │   ├── body/          # body readers and public parts
 │   │   │   │   ├── render/        # Renderer, Parser, media types
+│   │   │   │   ├── form/          # bounded URL-encoded form values
+│   │   │   │   ├── file/          # bounded static/file response API
 │   │   │   │   ├── stream/        # public Flow-based streaming types
 │   │   │   │   ├── client/
 │   │   │   │   ├── sse/
@@ -205,15 +225,13 @@ wave/
 │   │   │   │   ├── session/
 │   │   │   │   ├── config/
 │   │   │   │   ├── registry/
+│   │   │   │   ├── observability/
 │   │   │   │   ├── health/
 │   │   │   │   ├── lifecycle/
 │   │   │   │   └── testing/
 │   │   │   ├── spi/
 │   │   │   ├── runtime/
 │   │   │   ├── netty/
-│   │   │   ├── codec/
-│   │   │   ├── file/
-│   │   │   ├── observability/
 │   │   │   └── internal/
 │   │   └── resources/META-INF/services/
 │   ├── test/java/io/wavejava/wave/
@@ -222,7 +240,7 @@ wave/
 │   │   ├── contract/
 │   │   ├── architecture/
 │   │   └── load/
-│   └── jmh/java/io/wavejava/wave/bench/
+│   └── (JMH/load tools live in tools/wave-benchmarks/)
 ├── examples/
 │   ├── hello-api/
 │   ├── forms-and-files/
@@ -348,7 +366,8 @@ response.problem(Problem.of(422, "validation_failed"));
 response.redirect(303, "/users/42");
 response.text("ok");
 response.bytes(bytes, MediaType.APPLICATION_OCTET_STREAM);
-response.file(path);
+FileResponse.of(path).writeTo(request, response);
+response.render(rendered);
 response.stream(publisher);
 ```
 
@@ -427,7 +446,13 @@ void export(Request request, Response response) {
 
 ### 7.5 HTTP/2
 
-HTTP/2 以 stream 作為獨立 flow-control、deadline 與取消單位。connection level 與 stream level window 都要納入 byte budget；單一 stream 不得讓其他 stream 長時間飢餓。
+HTTP/2 只透過 TLS/ALPN 的 `h2` 啟用；不支援 h2c prior-knowledge，也不支援 HTTP/1.1 Upgrade。`Http2Config` 是 server/client 共用的不可變限制快照，至少包含最大 concurrent streams、header-list、frame、stream window、connection receive window 與 framework-owned inbound/outbound byte budgets。connection receive window 不得低於 RFC 7540 固定的 65,535 bytes：協定沒有可降低它的 SETTINGS，設定較小值必須在 assembly 時拒絕，不能靜默假裝已生效。
+
+HTTP/2 以 stream 作為獨立 deadline、cancel 與 Flow demand 單位；connection window 與 stream window 是 peer flow control，不能取代 framework retention budget。為了讓 memory proof 可直接驗證，Wave 將 connection-level request/response body budget 靜態分成最多 `maximumConcurrentStreams` 份：每一個 aggregate 或 Flow inbound stream、每一個有限-byte client request/response stream 只能取得自己的 partition。此作法可能留下未使用容量，但不建立 hidden shared queue，且所有同時 active stream 的保留總和有明確上限。
+
+server shutdown 的順序固定為：停止 listener、立即關閉 HTTP/1.x／未協商 peer、對已協商 HTTP/2 parent 送 `GOAWAY(NO_ERROR)`、停止新 stream admission、在既有 shared shutdown budget 內讓已接收 stream 完成，最後才取消未完成 invocation 並關閉 parent。client 收到 `GOAWAY` 後不再在該 parent 開新 stream；尚未開 stream 的工作回到 bounded pending admission，超過 peer `last-stream-id` 的 exchange 視為 transport failure，僅在既有 idempotency-safe retry policy 容許時重送。route 選擇與 physical-parent accounting 必須分離：draining parent 雖不再可供同 route 選擇，仍持續占用 `ClientRequestPool.maximumConcurrentRequests()` 的一個 slot，直到其 `closeFuture` 完成；因此 map replacement 不得使連線上限失效。
+
+`RST_STREAM`、disconnect、deadline 與 shutdown 都必須取消 request context、interrupt invocation virtual thread、cancel request/response `Flow.Subscription`、釋放其唯一 transport-owned item，且只影響該 stream。parent-level overload、frame/header protocol error 與 GOAWAY 則依 HTTP/2 error scope 關閉或 drain parent；任何一種路徑都不能讓一條 stream 長時間飢餓其他已可寫 stream。
 
 ---
 
@@ -453,16 +478,21 @@ TLS / ALPN (optional)
 `WaveClient` 提供 blocking 與 async API，並使用 Netty connection pool：
 
 ```java
-var received = client.get(uri).execute();
-var future = client.get(uri).executeAsync();
-var stream = client.get(uri).stream();
+var received = client.execute(client.get(uri));
+var future = client.executeAsync(client.get(uri));
 ```
 
-必須支援 TLS、HTTP/1.1、HTTP/2、redirect policy、connect/read/response timeout、request/response streaming、connection reuse、proxy 與 cancellation。client lifecycle 預設隸屬 `WaveServer`，也可獨立使用。
+公開 client body 契約是有限 byte request/response；JDK `Flow` 的公開 request/response body 契約屬於 server `Request.streamingBody()` 與 `Response.stream(...)`。client 不假裝提供未受測的 streaming API；若未來新增，必須是與 byte body 互斥的新公開契約，並具備 demand、ownership、slow-consumer、cancel 與 retry-safety tests。client lifecycle 可獨立使用，不隸屬於 server shutdown。
+
+公開 `WaveClient` 不暴露 Netty 或 JDK transport type。內部 Netty transport 僅在 reusable HTTP/1.1 channel 已回到 bounded idle cache、HTTP/2 stream 到達 END_STREAM／physical close，或 parent `closeFuture` 完成後才釋放實體 exchange。每個 `WaveClient` 的 physical parent/channel cache 受 `ClientRequestPool.maximumConcurrentRequests()` 限制；共用 `ClientRequestPool` 僅共用 request budget，並不把多個 client 的實體 cache 合併。
+
+HTTP/1.1 支援 direct TLS 與 HTTP proxy absolute-form request。啟用 HTTP/2 後，HTTPS 經 HTTP proxy 固定先進行有限 header 的 CONNECT tunnel，再做 origin TLS、SNI、hostname verification 與 ALPN；不能把 proxy TLS 驗證誤當 origin 驗證。`PREFER` 可於 direct origin ALPN 回落 HTTP/1.1；經 CONNECT tunnel 的回落必須有獨立的 HTTP/1.1 tunnel test 才可宣告支援。HTTP/2 parent 支援 multiplex、static byte partition、explicit reset cancellation、GOAWAY retirement 與 bounded LRU reuse。
 
 ### 8.3 TLS 與公開位址
 
 TLS configuration 包含 certificate/key、trust store、ALPN、cipher policy、client authentication 與 reload policy。`PublicAddress` 與 forwarded-header trust policy 必須獨立設定；不得盲目信任 `X-Forwarded-*` 或 `Forwarded`。
+
+`ForwardedHeaderPolicy` 預設 disabled。只有 immediate remote peer 命中有限 trusted CIDR allowlist 時，才接受單一、完整且語法正確的 RFC 7239 `Forwarded` origin；multi-hop、重複、malformed 或 untrusted header 一律 fail closed 為 direct socket origin。legacy `X-Forwarded-*` 必須顯式 opt-in。這只衍生 `Request.publicAddress()`，絕不改寫 wire `scheme`、authority、target 或 downstream security input。
 
 ---
 
@@ -474,16 +504,20 @@ SSE 建構在 response stream 之上，提供 event、id、retry、comment/heart
 
 ### 9.2 WebSocket
 
-WebSocket 提供 text、binary、ping/pong、close、subprotocol 與雙向 `Flow`：
+WebSocket 提供 text、binary、ping/pong、close、subprotocol 與以 `Flow` 表達的 inbound application data。server endpoint 維持既有 handler/route 模型：HTTP upgrade 仍經過 routing、middleware 與 virtual-thread invocation，成功寫出 `101` 後才啟動 endpoint。
 
 ```java
 routes.websocket("/chat", socket -> {
-    socket.inboundText().subscribe(chatService::receive);
-    socket.sendText(chatService.events());
+    socket.inbound().subscribe(new ChatSubscriber(socket));
+    socket.sendText("connected");
 });
 ```
 
-WebSocket handler 不在 EventLoop 執行。所有 callback 回到 invocation executor；close handshake、idle timeout、maximum frame/message bytes、outbound queue bytes 皆為必填限制。
+`WebSocketSession.inbound()` 只發布 application `TEXT`／`BINARY` 資料，以及在尚有 demand 時的一個 terminal `CLOSE` notification；transport Ping/Pong 不消耗 application demand，並由 session 自動處理。application 仍可透過 bounded `send`、`ping`、`pong`、`close` 發送 outbound message。
+
+WebSocket handler 不在 EventLoop 執行。所有 application callback 回到 invocation executor；close handshake、idle timeout、maximum frame/message bytes、inbound retention、data/application-control/mandatory-control/close outbound reserves 都是必填限制。慢 application subscriber 不得阻塞 Ping/Pong/close 的 protocol progress。
+
+`WebSocketClient` 採 owned Netty direct-`ws` transport、有限 connection admission 與 physical `closeFuture` resource ownership；不重用有限 byte 的 HTTP `WaveClient` pool。`wss`、proxy/redirect/retry WebSocket 與 RFC 8441 extended CONNECT 並非這個 1.0 single-artifact contract；它們必須先各自具備 TLS、proxy、close、cancellation 和 overload transport matrix，不能以 HTTP/2 已存在為理由隱性宣告可用。
 
 ---
 
@@ -521,15 +555,24 @@ Config 在 startup 完成後不可變。動態 reload 不是 1.0 核心功能；
 
 ### 10.4 Session
 
-Session API 支援 signed cookie identity、server-side session store SPI、expiry、rotation、invalidate。1.0 內建 in-memory store，定義 Redis/provider adapter SPI；不將 Redis dependency 放入核心。
+Session 採「signed opaque identity + server-side state」：`SessionId` 是 256-bit URL-safe random token，cookie 僅攜帶 ID、expiry 與 HMAC-SHA-256 signature，不能攜帶 attribute 或使用者資料。`SignedSessionCookieCodec` 要求至少 256-bit signing secret；cookie policy 預設為 `Secure`、`HttpOnly`、`SameSite=Lax`，且有明確 wire-size 上限。
+
+`SessionStore` 是公開 storage contract；1.0 內建 `InMemorySessionStore`，其 live session count 有固定上限、每次操作清除 expired entry、滿載時明確拒絕而非無界淘汰。每個 `Session` 的 attribute count/bytes、idle timeout、absolute timeout 與 rotation interval 都由 `SessionPolicy` 限制。rotation 必須以 store 的 atomic `rotate(previousId, replacement)` 使舊 ID 不再可用；rotation race 或 expiry 時清除所有已知 ID 與 client cookie，不得簽發沒有 trusted store record 的新 credential。
+
+Session persistence 是顯式的 request scope：application 以 `SessionManager.open(request)` 取得 `SessionScope`，並在選擇 response body 前呼叫 `scope.commit(response)`。這個規則避免 response commit 後才嘗試追加 `Set-Cookie` 而遺失 rotation／invalidate；session middleware 與 provider discovery 是 0.8 的擴充工作，不是隱藏 hook。
 
 ### 10.5 Health 與 Observability
 
-- liveness：process 是否可回應。
-- readiness：必要 service、dependency 與 startup 是否完成。
-- structured access log：request ID、route、method、status、latency、bytes、application outcome、transport outcome。
-- Micrometer 與 OpenTelemetry bridge：選配 dependency，以 SPI 啟用。
-- Prometheus endpoint：由 observability bridge 提供，不直接耦合特定 metric registry。
+- `HealthRegistry` 將 liveness 與 readiness 分開：liveness 只反映 process lifecycle；readiness 只在 `READY` 狀態執行必要 checks。check 名稱低 cardinality，check count、並行 evaluation 與每項 deadline 均有限；容量耗盡、timeout、exception 或 null result 都安全地回報 DOWN，不建立等待 queue。`HealthEndpoints` 僅提供明確註冊的 handler，不自動暴露營運路徑。
+- `AccessLogEvent` 是每個 HTTP request 的 immutable completion record：stable request ID、method、matched route pattern／低 cardinality label、status、monotonic latency、已成功寫出的 logical response body bytes、application outcome 與 transport outcome。它不保留 raw path/query、header、cookie、body、Throwable 或 exception message；`status=0` 表示尚未取得 HTTP response，upgrade 的 bytes 可為 unknown。`WRITTEN` 只表示完整 HTTP response 的 Netty write completion，絕不宣稱 peer 已收到資料。
+- 觀測資料流有兩個不可混淆的終態軸：`WaveApp` 產生 application response/outcome/route，`RequestDispatchHandler` 在 aggregate write、stream terminal write、upgrade 或 connection teardown 產生 transport outcome。middleware `onResponse` 不會因 transport failure 重跑。stream response 只在每個 chunk 寫入成功後累加 bytes，並在 terminal chunk 完成時發出事件。
+- `Observability` 將 access-log、`MetricsBridge`、`TracingBridge` 與 `PrometheusBridge` callback 送入一個專用、單 worker、有界 queue。full queue 丟棄新 event，不阻塞 application 或 EventLoop；callback failure 相互隔離；server shutdown 以既有 shared shutdown budget 做有限 drain。預設 disabled 時不配置 worker。Prometheus handler 必須由 application 明確 route 註冊，framework 不自動綁定 `/metrics`；Micrometer/OpenTelemetry 等 vendor adapter 留給 0.8 provider/SPI。
+
+### 10.6 SPI discovery
+
+`spi.*` 是唯一 extension boundary。1.0 的 provider family 為 parser、renderer、session store 與 lifecycle service，統一繼承 `WaveProvider` 的 stable `id`、`selectionKey` 與 priority 語意。`SpiCatalog` 是 immutable assembly snapshot；`ServiceLoader` 只在 `WaveApp` build 時執行，永不在 request path scan classpath。
+
+每個 family 都有有限 provider cap（預設 128）。重複 id、相同 selection key 且相同 priority、null metadata 或 provider factory failure 都必須在 listener bind 前以 `SpiConfigurationException` 失敗。priority 排序是 deterministic；service provider 每次 server run 建立 fresh `Service`，仍受既有 dependency graph、rollback 與 reverse-stop lifecycle 管理。外部 provider 必須能只依賴 exported `api.*`/`spi.*` 與 `spi.testing.ProviderContract` 獨立驗證。
 
 ---
 
@@ -539,11 +582,14 @@ Session API 支援 signed cookie identity、server-side session store SPI、expi
 
 wave 提供可組合 middleware 或 client policy：deadline propagation、retry、exponential backoff/jitter、bulkhead、rate limit、circuit breaker integration point。retry 預設只適用可安全重試的 client request；非 idempotent request 需由使用者明確 opt in。
 
+0.6 的 `RateLimitPolicy` 是 no-queue token bucket middleware：identity key 必須低 cardinality 且有 UTF-8 byte cap；live bucket table、idle lifetime 與每 request sweep work 都有限，滿載或 token 耗盡回應 `429`／`Retry-After`，不 evict active identity 來掩蓋 overload。`BulkheadPolicy` 是 fair semaphore、零等待 queue；滿載立即 `503`，permit 僅在 middleware reverse unwind 釋放，因此 cancellation 後尚未結束的 application work 不會被過早重複 admission。兩者均不建立背景 worker 或無界 retained state。
+
 ### 11.2 HTTP 安全基線
 
 - header/body/form/file size limits。
-- request smuggling 防護設定與 protocol conformance tests。
-- trusted proxy allowlist。
+- HTTP/1.1 request framing guard：拒絕 duplicate `Content-Length`、`Content-Length` + `Transfer-Encoding`、非 chunked transfer encoding、ambiguous/missing `Host` 與 connection framing header。
+- HTTP/2 conformance：禁止 connection-specific header、非 `trailers` 的 TE、非法 pseudo-header/header-list/frame，且這些 input 永不 dispatch application handler。
+- trusted proxy allowlist 與 strict `Forwarded` parsing。
 - secure cookie、SameSite、HttpOnly、session rotation。
 - multipart filename normalization、temporary file cleanup。
 - CORS policy middleware。
@@ -560,12 +606,13 @@ wave 提供可組合 middleware 或 client policy：deadline propagation、retry
 
 | 工具 | 用途 |
 |---|---|
-| `RequestFixture` | 不開 server，測 handler/middleware/parser/renderer |
-| `EmbeddedApp` | 以 ephemeral port 啟動完整 application |
-| `TestHttpClient` | HTTP/1.1、HTTP/2、cookie、redirect、file、form 測試 |
-| `TestWebSocketClient` | frame、close、backpressure 測試 |
+| `RequestFixture` | test source；不開 server，測 handler/middleware/parser/renderer |
+| `EmbeddedApp` | test source；以 ephemeral port 啟動完整 application |
+| `TestHttpClient` | test source；HTTP/1.1、HTTP/2、cookie、redirect、file、form 測試 |
+| test-scope-only `TestHttp2Peer`／`TestHttp2WirePeer` | TLS/ALPN raw H2 headers、RST、GOAWAY、window、invalid protocol input 與 direct wire empty-DATA flood；有有限 wait、無 production export |
+| test-only package-private `TestWebSocketClient` | raw `ws` handshake、masked/unmasked frame、fragmentation、protocol close、TCP FIN/RST、bounded read 的 transport tests；不是公開 API |
 | `TestSseClient` | event、retry、heartbeat、disconnect 測試 |
-| `MockUpstream` | 模擬外部 HTTP client dependency |
+| `MockUpstream` | test source；模擬外部 HTTP client dependency |
 | `ExecutionHarness` | deadline、cancellation、`CompletionStage`、`Flow` 測試 |
 
 ### 12.2 必要測試矩陣
@@ -641,7 +688,7 @@ wave 為單一 artifact：
 |---|---|---|
 | `0.1` | 可用核心 | server lifecycle、HTTP/1.1、route tree、Handler/Middleware、error mapping、JSON/text/bytes、RequestFixture、EmbeddedApp |
 | `0.2` | 執行正確性 | Virtual Thread dispatch、deadline/cancellation、HTTP/1.1 sequencing、limits、TLS、compression、graceful shutdown |
-| `0.3` | Web 基礎能力 | content negotiation、form、multipart、file/static、range/conditional、cookies、config、Registry/lifecycle |
+| `0.3` | Web 基礎能力 | content negotiation、URL-encoded form、file/static、range/conditional、cookies、config、Registry/lifecycle；不含 multipart |
 | `0.4` | Client 與資料流 | `CompletionStage` bridge、Flow streaming、HTTP client/pool、retry/backoff、mock upstream |
 | `0.5` | 長連線 | SSE server/client、WebSocket server/client、heartbeat、broadcast、slow-client handling |
 | `0.6` | Microservice operations | session SPI/in-memory store、health/readiness、metrics/tracing bridge、Prometheus、rate/bulkhead policies |
@@ -670,6 +717,9 @@ wave 為單一 artifact：
 - **ADR-010**：Registry 用於 framework services；業務依賴採 constructor injection。
 - **ADR-011**：Groovy 是 1.0 後的獨立 adapter，不進入核心 runtime。
 - **ADR-012**：所有 queue、buffer、connection 與並發有 byte/count/time budget。
+- **ADR-013**：HTTP/2 只支援 TLS/ALPN；h2c 與 Upgrade 不進 1.0。
+- **ADR-014**：HTTP/2 connection body budget 採 static stream partition，優先可驗證的 memory bound。
+- **ADR-015**：provider discovery 僅於 application assembly；公開 API binary compatibility 只在 immutable release baseline 存在後由 Revapi fail-closed 驗證。
 
 ---
 
@@ -681,3 +731,4 @@ wave 的功能範圍對照 Ratpack 的 HTTP application capabilities：server/co
 - [Ratpack HTTP client](https://ratpack.io/manual/current/http-client.html)
 - [Ratpack testing](https://ratpack.io/manual/current/testing.html)
 - [Groovy 5 release notes](https://groovy-lang.org/releasenotes/groovy-5.0.html)
+

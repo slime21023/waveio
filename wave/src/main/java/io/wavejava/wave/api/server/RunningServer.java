@@ -1,4 +1,4 @@
-package io.wavejava.wave;
+package io.wavejava.wave.api.server;
 
 /** A started wave server that owns its listening socket, invocation runtime, and application services. */
 public interface RunningServer extends AutoCloseable {

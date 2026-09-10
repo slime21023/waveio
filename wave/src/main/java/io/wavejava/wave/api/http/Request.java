@@ -1,7 +1,7 @@
 package io.wavejava.wave.api.http;
 
-import io.wavejava.wave.api.stream.BodyPublisher;
-import io.wavejava.wave.api.server.PublicAddress;
+import io.wavejava.wave.api.http.BodyPublisher;
+import io.wavejava.wave.api.http.PublicAddress;
 import java.net.SocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;

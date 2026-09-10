@@ -13,7 +13,7 @@ Maven release artifact 的二進位相容性比較；`0.1.0-SNAPSHOT`、本機 `
 
 Revapi 只分析下列 surface：
 
-- 根入口型別：`Wave`、`WaveApp`、`WaveServer`、`RunningServer`。
+- 根入口型別：`Wave`；`WaveApp`、`WaveServer`、`RunningServer` 位於各自的 `api.*` package。
 - 所有 `io.wavejava.wave.api.*` 與 `io.wavejava.wave.spi.*` 型別。
 
 `runtime.*`、`netty.*`、`internal.*`、`codec.*` 與非 API 的 `observability.*` 永遠不屬於
@@ -29,7 +29,7 @@ Revapi 只分析下列 surface：
 | `WaveClient.pool(...)` | `WaveClient.requestPool(...)` |
 | `SseResponse` | `SseResponseInfo` |
 | `ApplicationDispatch`／`ApplicationDispatcher` | `ApplicationResult`／`RequestDispatcher` |
-| `CompletionStageAwaiter` | 未 export 的 `internal.client.BlockingResultWaiter` |
+| `CompletionStageAwaiter` | 未 export 的 `runtime.client.BlockingResultWaiter` |
 | public `ResponseBody`、`Response.body()` | 未 export 的 `internal.http.ResponseData`；transport 只經 `ResponseDataReader` |
 | `api.testing` production package | test source `io.wavejava.wave.testing`；不 export |
 
@@ -45,6 +45,7 @@ surface；不建立 alias、facade 或正式 binary baseline。
 
 ```text
 io.wavejava.wave
+io.wavejava.wave.api.application
 io.wavejava.wave.api.client
 io.wavejava.wave.api.config
 io.wavejava.wave.api.file
@@ -62,7 +63,6 @@ io.wavejava.wave.api.routing
 io.wavejava.wave.api.server
 io.wavejava.wave.api.session
 io.wavejava.wave.api.sse
-io.wavejava.wave.api.stream
 io.wavejava.wave.api.websocket
 io.wavejava.wave.spi
 io.wavejava.wave.spi.lifecycle
@@ -82,7 +82,7 @@ io.wavejava.wave.spi.session.SessionStoreProvider
 
 `java.net.http` 僅是 module 的非 transitive implementation/test requirement；測試工具位於
 `wave/src/test/java/io/wavejava/wave/testing`，不屬於 production API，也不會被 export。其餘
-implementation dependencies 不會被 re-export。`Response` 是 sealed public control surface；
+implementation dependencies 不會被 re-export。`Response` 是 abstract public control surface；
 response payload representation 位於未 export 的 `internal.http.ResponseData`。
 
 ## 現在可執行的安全檢查

@@ -18,6 +18,7 @@ module io.wavejava.wave {
     requires org.slf4j;
 
     exports io.wavejava.wave;
+    exports io.wavejava.wave.api.application;
     exports io.wavejava.wave.api.file;
     exports io.wavejava.wave.api.form;
     exports io.wavejava.wave.api.health;
@@ -35,7 +36,6 @@ module io.wavejava.wave {
     exports io.wavejava.wave.api.server;
     exports io.wavejava.wave.api.session;
     exports io.wavejava.wave.api.sse;
-    exports io.wavejava.wave.api.stream;
     exports io.wavejava.wave.api.websocket;
     exports io.wavejava.wave.spi;
     exports io.wavejava.wave.spi.lifecycle;

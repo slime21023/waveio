@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.wavejava.wave.api.server.Http2Config;
+import io.wavejava.wave.api.http.Http2Config;
 import java.net.URI;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -20,12 +20,12 @@ class Http2GoAwayClientIntegrationTest {
         try (var origin = TestHttp2GoAwayOrigin.start(
                         testResourcePath("/tls/localhost-cert.pem"),
                         testResourcePath("/tls/localhost-key.pem"));
-                var client = WaveClient.builder()
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder()
                         .http2(Http2Config.builder().build())
                         .tls(ClientTlsConfig.builder()
                                 .trustCertificateChain(testResourcePath("/tls/localhost-cert.pem"))
                                 .build())
-                        .build()) {
+                        .build())) {
             var base = URI.create("https://127.0.0.1:" + origin.port());
             var first = client.execute(ClientRequest.get(base.resolve("/first")));
 
@@ -48,13 +48,13 @@ class Http2GoAwayClientIntegrationTest {
         try (var origin = TestHttp2GoAwayOrigin.startHoldingFirstResponse(
                         testResourcePath("/tls/localhost-cert.pem"),
                         testResourcePath("/tls/localhost-key.pem"));
-                var client = WaveClient.builder()
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder()
                         .requestPool(pool)
                         .http2(http2)
                         .tls(ClientTlsConfig.builder()
                                 .trustCertificateChain(testResourcePath("/tls/localhost-cert.pem"))
                                 .build())
-                        .build()) {
+                        .build())) {
             var base = URI.create("https://127.0.0.1:" + origin.port());
             var first = client.executeAsync(ClientRequest.get(base.resolve("/first"))).toCompletableFuture();
 

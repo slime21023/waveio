@@ -2,6 +2,7 @@ package io.wavejava.wave.api.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -59,7 +60,7 @@ class ClientContractsTest {
     @Test
     void rejectsAnOversizedRequestBeforeItCanEnterTheTransport() {
         var pool = ClientRequestPool.builder().maximumRequestBodyBytes(3).build();
-        try (var client = WaveClient.builder().requestPool(pool).build()) {
+        try (var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().requestPool(pool).build())) {
             var failure = assertThrows(ClientLimitExceededException.class, () -> client.execute(ClientRequest.builder()
                     .uri(URI.create("https://example.test/oversized"))
                     .body(new byte[] {1, 2, 3, 4})
@@ -91,6 +92,36 @@ class ClientContractsTest {
 
             promoted.close();
             assertEquals(new ClientRequestPool.Snapshot(0, 0, false), pool.snapshot());
+        } finally {
+            pool.close();
+        }
+    }
+
+    @Test
+    void cancelledAndClosedWaitersNeverRetainRequestAdmission() {
+        var pool = ClientRequestPool.builder()
+                .maximumConcurrentRequests(1)
+                .maximumQueuedRequests(2)
+                .build();
+        try {
+            var first = pool.acquire().join();
+            var cancelled = pool.acquire();
+            var retained = pool.acquire();
+            assertTrue(cancelled.cancel(false));
+            assertEquals(new ClientRequestPool.Snapshot(1, 1, false), pool.snapshot());
+
+            first.close();
+            var promoted = retained.join();
+            assertEquals(new ClientRequestPool.Snapshot(1, 0, false), pool.snapshot());
+
+            var waiting = pool.acquire();
+            pool.close();
+            var closed = assertThrows(java.util.concurrent.CompletionException.class, waiting::join);
+            assertInstanceOf(IllegalStateException.class, closed.getCause());
+            assertTrue(pool.isClosed());
+            assertThrows(java.util.concurrent.CompletionException.class, () -> pool.acquire().join());
+            promoted.close();
+            assertEquals(new ClientRequestPool.Snapshot(0, 0, true), pool.snapshot());
         } finally {
             pool.close();
         }

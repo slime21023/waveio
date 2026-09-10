@@ -1,6 +1,7 @@
 package io.wavejava.wave.api.file;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.wavejava.wave.Wave;
@@ -32,20 +33,20 @@ class StaticFileHandlerTest {
         Files.setLastModifiedTime(file, FileTime.from(Instant.parse("2026-09-09T00:00:00Z")));
         var app = appFor(StaticFileHandler.builder(root).pathParameter("path").build());
 
-        var full = app.handle(Request.of(HttpMethod.GET, "/hello.txt"));
+        var full = io.wavejava.wave.testing.TestApplication.of(app).handle(Request.of(HttpMethod.GET, "/hello.txt"));
         var etag = full.headers().first("ETag").orElseThrow();
         assertEquals(200, full.status());
         assertEquals("hello wave", body(full));
         assertEquals("bytes", full.headers().first("Accept-Ranges").orElseThrow());
 
-        var notModified = app.handle(Request.builder()
+        var notModified = io.wavejava.wave.testing.TestApplication.of(app).handle(Request.builder()
                 .method(HttpMethod.GET)
                 .path("/hello.txt")
                 .header("If-None-Match", etag)
                 .build());
         assertEquals(304, notModified.status());
 
-        var ranged = app.handle(Request.builder()
+        var ranged = io.wavejava.wave.testing.TestApplication.of(app).handle(Request.builder()
                 .method(HttpMethod.GET)
                 .path("/hello.txt")
                 .header("Range", "bytes=6-9")
@@ -62,12 +63,12 @@ class StaticFileHandlerTest {
         var handler = StaticFileHandler.builder(root).pathParameter("path").maximumBytes(4).build();
         var app = appFor(handler);
 
-        assertEquals(403, app.handle(Request.of(HttpMethod.GET, "/../outside.txt")).status());
-        assertEquals(404, app.handle(Request.of(HttpMethod.GET, "/missing.txt")).status());
-        assertEquals(413, app.handle(Request.of(HttpMethod.GET, "/large.txt")).status());
+        assertEquals(403, io.wavejava.wave.testing.TestApplication.of(app).handle(Request.of(HttpMethod.GET, "/../outside.txt")).status());
+        assertEquals(404, io.wavejava.wave.testing.TestApplication.of(app).handle(Request.of(HttpMethod.GET, "/missing.txt")).status());
+        assertEquals(413, io.wavejava.wave.testing.TestApplication.of(app).handle(Request.of(HttpMethod.GET, "/large.txt")).status());
 
         var unrestricted = appFor(StaticFileHandler.builder(root).pathParameter("path").build());
-        var unsatisfiable = unrestricted.handle(Request.builder()
+        var unsatisfiable = io.wavejava.wave.testing.TestApplication.of(unrestricted).handle(Request.builder()
                 .method(HttpMethod.GET)
                 .path("/large.txt")
                 .header("Range", "bytes=99-")
@@ -107,7 +108,19 @@ class StaticFileHandlerTest {
         }
     }
 
-    private static io.wavejava.wave.WaveApp appFor(StaticFileHandler handler) {
+    @Test
+    void detectsStableMediaTypesAndRejectsInvalidFileBudgets() throws Exception {
+        var unknown = root.resolve("blob.wave-unknown");
+        Files.writeString(unknown, "wave", StandardCharsets.UTF_8);
+        var response = io.wavejava.wave.testing.TestApplication.of(appFor(StaticFileHandler.builder(root)
+                .pathParameter("path").build())).handle(Request.of(HttpMethod.GET, "/blob.wave-unknown"));
+        assertEquals("application/octet-stream", response.headers().first("Content-Type").orElseThrow());
+        assertThrows(IllegalArgumentException.class, () -> FileResponse.builder(root.resolve("x")).maximumBytes(0));
+        assertThrows(IllegalArgumentException.class,
+                () -> FileResponse.builder(root.resolve("x")).maximumBytes((long) Integer.MAX_VALUE + 1));
+    }
+
+    private static io.wavejava.wave.api.application.WaveApp appFor(StaticFileHandler handler) {
         return Wave.app().routes(routes -> routes.get("/{*path}", handler)).build();
     }
 

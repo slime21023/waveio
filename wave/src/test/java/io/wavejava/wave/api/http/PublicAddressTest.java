@@ -1,4 +1,6 @@
-package io.wavejava.wave.api.server;
+package io.wavejava.wave.api.http;
+
+import io.wavejava.wave.api.http.PublicAddress;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

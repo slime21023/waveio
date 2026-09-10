@@ -1,5 +1,7 @@
 package io.wavejava.wave.api.server;
 
+import io.wavejava.wave.api.http.PublicAddress;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -67,6 +69,46 @@ class ForwardedHeaderPolicyTest {
 
         assertThrows(IllegalArgumentException.class, () -> ForwardedHeaderPolicy.builder().trustedProxy("proxy.example/24"));
         assertFalse(ForwardedHeaderPolicy.disabled().isEnabled());
+    }
+
+    @Test
+    void acceptsQuotedForwardedValuesAndRejectsAmbiguousParameters() {
+        var policy = ForwardedHeaderPolicy.builder().trustedProxy("2001:db8::/32").build();
+        var quoted = request("2001:db8::42", Headers.builder()
+                .add("Host", "internal.example")
+                .add("Forwarded", "for=198.51.100.10;proto=\"https\";host=\"[2001:db8::5]:9443\"")
+                .build());
+        assertEquals("https://[2001:db8::5]:9443", policy.apply(quoted).publicAddress().orElseThrow().toString());
+
+        for (var value : java.util.List.of(
+                "proto=https;proto=http;host=public.example",
+                "proto=https;host=public.example;bad value=x",
+                "proto=\"https;host=public.example",
+                "proto=https;host=public.example\\\\bad")) {
+            var malformed = request("2001:db8::42", Headers.builder()
+                    .add("Host", "internal.example")
+                    .add("Forwarded", value)
+                    .build());
+            assertEquals("http://internal.example", policy.apply(malformed).publicAddress().orElseThrow().toString(), value);
+        }
+    }
+
+    @Test
+    void legacyForwardingRejectsIncompleteMultiValueAndQuotedOrigins() {
+        var policy = ForwardedHeaderPolicy.builder()
+                .trustedProxy("127.0.0.0/8")
+                .allowLegacyXForwarded(true)
+                .build();
+
+        for (var headers : java.util.List.of(
+                Headers.builder().add("Host", "internal.example").add("X-Forwarded-Proto", "https").build(),
+                Headers.builder().add("Host", "internal.example").add("X-Forwarded-Proto", "https,http").add("X-Forwarded-Host", "public.example").build(),
+                Headers.builder().add("Host", "internal.example").add("X-Forwarded-Proto", "https").add("X-Forwarded-Host", "\"public.example\"").build(),
+                Headers.builder().add("Host", "internal.example").add("X-Forwarded-Proto", "https").add("X-Forwarded-Host", "one.example").add("X-Forwarded-Host", "two.example").build())) {
+            assertEquals("http://internal.example", policy.apply(request("127.0.0.2", headers)).publicAddress().orElseThrow().toString());
+        }
+        assertThrows(IllegalArgumentException.class, () -> ForwardedHeaderPolicy.builder().trustedProxy("127.0.0.1/33"));
+        assertThrows(IllegalArgumentException.class, () -> ForwardedHeaderPolicy.builder().trustedProxy("127.0.0.1//32"));
     }
 
     private static Request request(String peer, Headers headers) {

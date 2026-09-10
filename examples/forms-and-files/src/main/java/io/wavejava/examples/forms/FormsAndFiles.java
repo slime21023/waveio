@@ -1,7 +1,7 @@
 package io.wavejava.examples.forms;
 
 import io.wavejava.wave.Wave;
-import io.wavejava.wave.WaveApp;
+import io.wavejava.wave.api.application.WaveApp;
 import io.wavejava.wave.api.file.StaticFileHandler;
 import io.wavejava.wave.api.form.FormData;
 import io.wavejava.wave.api.server.ServerLimits;
@@ -23,7 +23,7 @@ public final class FormsAndFiles {
         var files = StaticFileHandler.builder(documentRoot).pathParameter("path").maximumBytes(64 * 1024).build();
         return Wave.app().routes(routes -> {
             routes.post("/form", (request, response) -> {
-                FormData form = request.body().form();
+                FormData form = new io.wavejava.wave.api.form.UrlEncodedFormParser().parse(request.body());
                 response.text(form.first("name").orElse("missing"));
             });
             routes.get("/{*path}", files);
@@ -54,7 +54,7 @@ public final class FormsAndFiles {
         }
     }
 
-    private static io.wavejava.wave.RunningServer server(Path root) {
+    private static io.wavejava.wave.api.server.RunningServer server(Path root) {
         return io.wavejava.wave.Wave.server(application(root))
                 .limits(ServerLimits.builder().maximumConnections(16).maximumInFlightRequests(16)
                         .maximumRequestBodyBytes(64 * 1024).build())

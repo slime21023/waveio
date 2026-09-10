@@ -1,8 +1,7 @@
 package io.wavejava.examples.gateway;
 
 import io.wavejava.wave.Wave;
-import io.wavejava.wave.WaveApp;
-import io.wavejava.wave.api.client.WaveClient;
+import io.wavejava.wave.api.application.WaveApp;
 import io.wavejava.wave.api.http.MediaType;
 import io.wavejava.wave.api.server.ServerLimits;
 import io.wavejava.wave.api.server.ServerTimeouts;
@@ -16,7 +15,7 @@ public final class GatewayApi {
 
     public static WaveApp application(URI upstream) {
         return Wave.app().routes(routes -> routes.get("/proxy", (request, response) -> {
-            try (var client = WaveClient.create()) {
+            try (var client = Wave.client()) {
                 var upstreamResponse = client.request(upstream).timeout(java.time.Duration.ofSeconds(2)).build();
                 var result = client.execute(upstreamResponse);
                 response.bytes(result.body(), MediaType.APPLICATION_OCTET_STREAM);

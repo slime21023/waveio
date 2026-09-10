@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.wavejava.wave.api.http.Body;
 import io.wavejava.wave.api.http.MediaType;
@@ -50,6 +51,23 @@ class SpiProvidersTest {
                 TestProvider.class,
                 List.of(new Candidate("one", 1, "one"), new Candidate("two", 2, "two")),
                 1));
+    }
+
+    @Test
+    void catalogBuilderIsBoundedImmutableAfterBuildAndRetainsEmptyFamilyBoundaries() {
+        var builder = SpiCatalog.builder();
+        assertThrows(IllegalArgumentException.class, () -> builder.maximumProvidersPerType(0));
+        var catalog = builder.maximumProvidersPerType(1).build();
+        assertTrue(catalog.parserProviders().isEmpty());
+        assertTrue(catalog.rendererProviders().isEmpty());
+        assertTrue(catalog.sessionStoreProviders().isEmpty());
+        assertTrue(catalog.serviceProviders().isEmpty());
+        assertThrows(IllegalStateException.class, builder::discover);
+        assertThrows(IllegalStateException.class, builder::build);
+        assertThrows(NullPointerException.class, () -> SpiCatalog.builder().parser(null));
+        assertThrows(NullPointerException.class, () -> SpiCatalog.builder().renderer(null));
+        assertThrows(NullPointerException.class, () -> SpiCatalog.builder().sessionStore(null));
+        assertThrows(NullPointerException.class, () -> SpiCatalog.builder().service(null));
     }
 
     @Test

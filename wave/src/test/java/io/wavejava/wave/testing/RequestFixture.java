@@ -1,6 +1,6 @@
 package io.wavejava.wave.testing;
 
-import io.wavejava.wave.WaveApp;
+import io.wavejava.wave.api.application.WaveApp;
 import io.wavejava.wave.api.http.Body;
 import io.wavejava.wave.api.http.Headers;
 import io.wavejava.wave.api.http.HttpMethod;
@@ -87,7 +87,7 @@ public final class RequestFixture {
 
     /** Dispatches a fresh request through {@code application}. */
     public Response send(WaveApp application) {
-        return Objects.requireNonNull(application, "application").handle(build());
+        return TestApplication.of(Objects.requireNonNull(application, "application")).handle(build());
     }
 }
 

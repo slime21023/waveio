@@ -1,6 +1,7 @@
 package io.wavejava.wave.api.server;
 
 import io.wavejava.wave.api.http.Headers;
+import io.wavejava.wave.api.http.PublicAddress;
 import io.wavejava.wave.api.http.Request;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;

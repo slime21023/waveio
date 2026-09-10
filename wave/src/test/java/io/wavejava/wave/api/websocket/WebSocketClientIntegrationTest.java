@@ -53,10 +53,10 @@ class WebSocketClientIntegrationTest {
                 // The client owns the normal close in this test.
             }
         }), List.of("chat.v1"));
-        var app = Wave.app().routes(routes -> routes.websocket("/echo", endpoint)).build();
+        var app = Wave.app().routes(routes -> routes.get("/echo", io.wavejava.wave.api.websocket.WebSocket.handler( endpoint))).build();
 
         try (var server = Wave.server(app).listen(0).start();
-                var client = WebSocketClient.builder().idleTimeout(Duration.ofSeconds(30)).build()) {
+                var client = io.wavejava.wave.Wave.webSocketClient(WebSocketClientOptions.builder().idleTimeout(Duration.ofSeconds(30)).build())) {
             var connection = client.connect(WebSocketClientRequest.builder()
                             .uri(URI.create("ws://127.0.0.1:" + server.port() + "/echo"))
                             .subprotocol("chat.v1")
@@ -101,7 +101,7 @@ class WebSocketClientIntegrationTest {
         var app = Wave.app().routes(routes -> routes.get("/plain", (request, response) -> response.text("not a socket"))).build();
 
         try (var server = Wave.server(app).listen(0).start();
-                var client = WebSocketClient.builder().build()) {
+                var client = io.wavejava.wave.Wave.webSocketClient(WebSocketClientOptions.builder().build())) {
             var future = client.connect(WebSocketClientRequest.of(
                     URI.create("ws://127.0.0.1:" + server.port() + "/plain"))).toCompletableFuture();
             var failure = java.util.concurrent.ExecutionException.class.cast(
@@ -115,10 +115,10 @@ class WebSocketClientIntegrationTest {
     @Test
     void physicalConnectionAdmissionIsReleasedOnlyAfterTheConnectionCloses() throws Exception {
         var connected = new CountDownLatch(1);
-        var app = Wave.app().routes(routes -> routes.websocket("/hold", session -> connected.countDown())).build();
+        var app = Wave.app().routes(routes -> routes.get("/hold", io.wavejava.wave.api.websocket.WebSocket.handler( session -> connected.countDown()))).build();
 
         try (var server = Wave.server(app).listen(0).start();
-                var client = WebSocketClient.builder().maximumConnections(1).build()) {
+                var client = io.wavejava.wave.Wave.webSocketClient(WebSocketClientOptions.builder().maximumConnections(1).build())) {
             var target = URI.create("ws://127.0.0.1:" + server.port() + "/hold");
             var first = client.connect(WebSocketClientRequest.of(target)).toCompletableFuture()
                     .get(TIMEOUT.toNanos(), TimeUnit.NANOSECONDS);
@@ -142,7 +142,7 @@ class WebSocketClientIntegrationTest {
     @Test
     void clientShutdownAbortsActiveConnectionsAndRejectsNewAdmission() throws Exception {
         try (var upstream = TestWebSocketUpstream.start();
-                var client = WebSocketClient.builder().build()) {
+                var client = io.wavejava.wave.Wave.webSocketClient(WebSocketClientOptions.builder().build())) {
             var connection = client.connect(WebSocketClientRequest.of(upstream.uri())).toCompletableFuture()
                     .get(TIMEOUT.toNanos(), TimeUnit.NANOSECONDS);
             upstream.awaitHandshake();
@@ -159,10 +159,10 @@ class WebSocketClientIntegrationTest {
     @Test
     void establishmentDeadlineClosesThePhysicalSocketBeforeItsAdmissionCanBeReused() throws Exception {
         try (var peer = RawHandshakePeer.stalling();
-                var client = WebSocketClient.builder()
+                var client = io.wavejava.wave.Wave.webSocketClient(WebSocketClientOptions.builder()
                         .maximumConnections(1)
                         .handshakeTimeout(Duration.ofMillis(250))
-                        .build()) {
+                        .build())) {
             var future = client.connect(WebSocketClientRequest.of(peer.uri())).toCompletableFuture();
             peer.assertRequestObserved();
 
@@ -177,7 +177,7 @@ class WebSocketClientIntegrationTest {
     void requestCancellationAbortsAnInProgressHandshakeAndClosesThePhysicalSocket() throws Exception {
         var cancellation = CancellationToken.create();
         try (var peer = RawHandshakePeer.stalling();
-                var client = WebSocketClient.builder().build()) {
+                var client = io.wavejava.wave.Wave.webSocketClient(WebSocketClientOptions.builder().build())) {
             var future = client.connect(WebSocketClientRequest.builder()
                             .uri(peer.uri())
                             .cancellationToken(cancellation)
@@ -201,7 +201,7 @@ class WebSocketClientIntegrationTest {
                 + "X-First: one\r\n"
                 + "X-Second: two\r\n\r\n";
         try (var peer = RawHandshakePeer.responding(response);
-                var client = WebSocketClient.builder().maximumResponseHeaders(2).build()) {
+                var client = io.wavejava.wave.Wave.webSocketClient(WebSocketClientOptions.builder().maximumResponseHeaders(2).build())) {
             var future = client.connect(WebSocketClientRequest.of(peer.uri())).toCompletableFuture();
             peer.assertRequestObserved();
 
@@ -217,7 +217,7 @@ class WebSocketClientIntegrationTest {
         var response = "HTTP/1.1 101 Switching Protocols\r\n"
                 + "X-Oversized: " + "x".repeat(512) + "\r\n\r\n";
         try (var peer = RawHandshakePeer.responding(response);
-                var client = WebSocketClient.builder().maximumResponseHeaderBytes(64).build()) {
+                var client = io.wavejava.wave.Wave.webSocketClient(WebSocketClientOptions.builder().maximumResponseHeaderBytes(64).build())) {
             var future = client.connect(WebSocketClientRequest.of(peer.uri())).toCompletableFuture();
             peer.assertRequestObserved();
 
@@ -233,7 +233,7 @@ class WebSocketClientIntegrationTest {
         var received = new AtomicReference<String>();
         var delivered = new CountDownLatch(1);
         try (var upstream = TestWebSocketUpstream.start();
-                var client = WebSocketClient.builder().idleTimeout(Duration.ofSeconds(30)).build()) {
+                var client = io.wavejava.wave.Wave.webSocketClient(WebSocketClientOptions.builder().idleTimeout(Duration.ofSeconds(30)).build())) {
             var connection = client.connect(WebSocketClientRequest.of(upstream.uri())).toCompletableFuture()
                     .get(TIMEOUT.toNanos(), TimeUnit.NANOSECONDS);
             upstream.awaitHandshake();
@@ -290,7 +290,7 @@ class WebSocketClientIntegrationTest {
         var subscribed = new CountDownLatch(1);
         var delivered = new CountDownLatch(1);
         try (var upstream = TestWebSocketUpstream.start();
-                var client = WebSocketClient.builder().idleTimeout(Duration.ofSeconds(30)).build()) {
+                var client = io.wavejava.wave.Wave.webSocketClient(WebSocketClientOptions.builder().idleTimeout(Duration.ofSeconds(30)).build())) {
             var connection = client.connect(WebSocketClientRequest.of(upstream.uri())).toCompletableFuture()
                     .get(TIMEOUT.toNanos(), TimeUnit.NANOSECONDS);
             upstream.awaitHandshake();
@@ -337,7 +337,7 @@ class WebSocketClientIntegrationTest {
     void maskedServerDataFrameTriggersAProtocolCloseInsteadOfReachingTheClientSubscriber() throws Exception {
         var delivered = new CountDownLatch(1);
         try (var upstream = TestWebSocketUpstream.start();
-                var client = WebSocketClient.builder().build()) {
+                var client = io.wavejava.wave.Wave.webSocketClient(WebSocketClientOptions.builder().build())) {
             var connection = client.connect(WebSocketClientRequest.of(upstream.uri())).toCompletableFuture()
                     .get(TIMEOUT.toNanos(), TimeUnit.NANOSECONDS);
             upstream.awaitHandshake();

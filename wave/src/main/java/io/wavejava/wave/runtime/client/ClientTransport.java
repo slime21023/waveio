@@ -1,18 +1,14 @@
-package io.wavejava.wave.netty;
+package io.wavejava.wave.runtime.client;
 
 import io.wavejava.wave.api.client.ClientRequest;
-import io.wavejava.wave.api.client.ClientRequestPool;
-import io.wavejava.wave.api.client.ClientTlsConfig;
-import io.wavejava.wave.api.client.ProxyPolicy;
 import io.wavejava.wave.api.http.Headers;
-import io.wavejava.wave.api.server.Http2Config;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 
 /**
  * Private seam between the exported client orchestration and its owned transport implementation.
  *
- * <p>No instance of this type is exposed from {@link WaveClient}; it exists so policy, admission,
+ * <p>No instance of this type is exposed from the public client contract; it exists so policy, admission,
  * and cancellation orchestration stay independent of Netty implementation classes. A transport
  * exchange has a separate logical cancellation handle and physical completion stage.</p>
  */
@@ -24,7 +20,9 @@ public interface ClientTransport extends AutoCloseable {
     CompletionStage<Void> closeAsync();
 
     @Override
-    void close();
+    default void close() {
+        closeAsync().toCompletableFuture().join();
+    }
 
     /** The cancellation and physical-terminal state for one transport exchange. */
     interface Exchange {
@@ -43,17 +41,6 @@ public interface ClientTransport extends AutoCloseable {
         }
     }
 
-    /** Creates the owned bounded Netty transport selected by the explicit HTTP protocol policy. */
-    static ClientTransport netty(
-            ClientRequestPool requestPool,
-            ProxyPolicy proxyPolicy,
-            Http2Config http2,
-            ClientTlsConfig tls) {
-        if (!http2.isEnabled()) {
-            return new NettyClientTransport(requestPool, proxyPolicy, tls);
-        }
-        return new NettyHttp2ClientTransport(requestPool, proxyPolicy, http2, tls);
-    }
 }
 
 

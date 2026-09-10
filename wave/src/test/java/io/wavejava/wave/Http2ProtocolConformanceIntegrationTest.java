@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.wavejava.wave.api.server.ForwardedHeaderPolicy;
-import io.wavejava.wave.api.server.Http2Config;
+import io.wavejava.wave.api.http.Http2Config;
 import io.wavejava.wave.api.server.TlsConfig;
 import io.wavejava.wave.netty.TestHttp2Peer;
 import io.wavejava.wave.netty.TestHttp2WirePeer;

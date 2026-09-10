@@ -45,7 +45,9 @@ import io.netty.handler.ssl.SslHandler;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.wavejava.wave.api.http.Headers;
-import io.wavejava.wave.api.server.Http2Config;
+import io.wavejava.wave.api.http.Http2Config;
+import io.wavejava.wave.runtime.client.CancellationBridge;
+import io.wavejava.wave.runtime.client.ClientTransport;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.nio.channels.ClosedChannelException;
@@ -77,7 +79,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * mutations happen on one private EventLoop; caller continuations remain in {@link WaveClient}'s
  * virtual-thread orchestration layer.</p>
  */
-final class NettyHttp2ClientTransport implements ClientTransport {
+public final class NettyHttp2ClientTransport implements ClientTransport {
     private static final int INITIAL_LINE_LIMIT = 8 * 1024;
     private static final Set<String> TRANSPORT_OWNED_REQUEST_HEADERS = Set.of(
             "host", "content-length", "transfer-encoding", "connection", "keep-alive",
@@ -90,7 +92,7 @@ final class NettyHttp2ClientTransport implements ClientTransport {
     private final ClientRequestPool pool;
     private final ProxyPolicy proxyPolicy;
     private final Http2Config config;
-    private final NettyClientTransport http1Fallback;
+    private final NettyHttp1ClientTransport http1Fallback;
     private final int maximumPhysicalChannels;
     private final int maximumResponseBodyBytes;
     private final int maximumResponseHeaders;
@@ -108,7 +110,7 @@ final class NettyHttp2ClientTransport implements ClientTransport {
     private final CompletableFuture<Void> h2CloseCompletion = new CompletableFuture<>();
     private boolean shutdownStarted;
 
-    NettyHttp2ClientTransport(
+    public NettyHttp2ClientTransport(
             ClientRequestPool pool,
             ProxyPolicy proxyPolicy,
             Http2Config config,
@@ -139,7 +141,7 @@ final class NettyHttp2ClientTransport implements ClientTransport {
             throw new IllegalStateException("Could not initialize the Netty HTTP/2 TLS client context", failure);
         }
         // HTTP/1.1 remains the deterministic PREFER fallback and handles ordinary HTTP origins.
-        http1Fallback = new NettyClientTransport(pool, proxyPolicy, tls);
+        http1Fallback = new NettyHttp1ClientTransport(pool, proxyPolicy, tls);
         group = new NioEventLoopGroup(1, new DefaultThreadFactory("wave-client-h2-io", true));
         eventLoop = (EventLoop) group.next();
         bootstrap = new Bootstrap()
@@ -184,11 +186,6 @@ final class NettyHttp2ClientTransport implements ClientTransport {
                     });
         }
         return closeCompletion;
-    }
-
-    @Override
-    public void close() {
-        closeAsync().toCompletableFuture().join();
     }
 
     private void begin(TransportExchange exchange, ClientRequest request, RouteKey route) {
@@ -1070,12 +1067,12 @@ final class NettyHttp2ClientTransport implements ClientTransport {
         }
 
         @Override
-        boolean isDone() {
+        public boolean isDone() {
             return completion.isDone();
         }
 
         @Override
-        void requestAbort() {
+        public void requestAbort() {
             if (completion.isDone() || !abortRequested.compareAndSet(false, true)) {
                 return;
             }

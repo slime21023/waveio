@@ -1,6 +1,6 @@
 package io.wavejava.wave.runtime;
 
-import io.wavejava.wave.api.stream.BodyPublisher;
+import io.wavejava.wave.api.http.BodyPublisher;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;

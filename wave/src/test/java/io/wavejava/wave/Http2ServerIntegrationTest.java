@@ -1,10 +1,12 @@
 package io.wavejava.wave;
 
+import io.wavejava.wave.api.server.RunningServer;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.wavejava.wave.api.server.Http2Config;
+import io.wavejava.wave.api.http.Http2Config;
 import io.wavejava.wave.api.server.ServerLimits;
 import io.wavejava.wave.api.server.ServerTimeouts;
 import io.wavejava.wave.api.server.TlsConfig;

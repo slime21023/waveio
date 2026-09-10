@@ -16,6 +16,7 @@ import io.wavejava.wave.api.websocket.WebSocketLimits;
 import io.wavejava.wave.runtime.InvocationRuntime;
 import java.time.Duration;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 /** Deterministic transport-budget tests for one already upgraded WebSocket pipeline. */
@@ -87,6 +88,58 @@ class WebSocketSessionHandlerTest {
             }
         } finally {
             heldWrites.failPending();
+            channel.finishAndReleaseAll();
+            runtime.close();
+        }
+    }
+
+    @Test
+    void sendsApplicationMessagesThenCompletesThePeerCloseHandshake() throws Exception {
+        var runtime = new InvocationRuntime();
+        var handler = new WebSocketSessionHandler(Request.of(HttpMethod.GET, "/chat"),
+                new WebSocketLimits(256, 256, 512, Duration.ofSeconds(1)), runtime);
+        var channel = new EmbeddedChannel(handler);
+        try {
+            activate(channel, handler);
+            var write = handler.sendText("hello");
+            channel.runPendingTasks();
+            assertTrue(write.toCompletableFuture().get(1, TimeUnit.SECONDS) == null);
+            var text = assertInstanceOf(TextWebSocketFrame.class, channel.readOutbound());
+            try {
+                assertTrue(text.text().equals("hello"));
+            } finally {
+                text.release();
+            }
+            assertTrue(handler.isOpen());
+
+            channel.writeInbound(new CloseWebSocketFrame(1000, "done"));
+            channel.runPendingTasks();
+            var acknowledgement = assertInstanceOf(CloseWebSocketFrame.class, channel.readOutbound());
+            try {
+                assertTrue(acknowledgement.statusCode() == 1000);
+            } finally {
+                acknowledgement.release();
+            }
+            handler.closed().toCompletableFuture().get(1, TimeUnit.SECONDS);
+            assertFalse(handler.isOpen());
+        } finally {
+            channel.finishAndReleaseAll();
+            runtime.close();
+        }
+    }
+
+    @Test
+    void rejectsFramesReceivedBeforeTheOrderedHandshakeActivation() {
+        var runtime = new InvocationRuntime();
+        var handler = new WebSocketSessionHandler(Request.of(HttpMethod.GET, "/chat"),
+                new WebSocketLimits(256, 256, 512, Duration.ofSeconds(1)), runtime);
+        var channel = new EmbeddedChannel(handler);
+        try {
+            channel.writeInbound(new TextWebSocketFrame("too early"));
+            channel.runPendingTasks();
+            assertFalse(channel.isActive());
+            assertFalse(handler.isOpen());
+        } finally {
             channel.finishAndReleaseAll();
             runtime.close();
         }

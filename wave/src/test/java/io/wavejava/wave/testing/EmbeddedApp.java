@@ -1,8 +1,8 @@
 package io.wavejava.wave.testing;
 
-import io.wavejava.wave.RunningServer;
+import io.wavejava.wave.api.server.RunningServer;
 import io.wavejava.wave.Wave;
-import io.wavejava.wave.WaveApp;
+import io.wavejava.wave.api.application.WaveApp;
 import java.net.URI;
 import java.util.Objects;
 

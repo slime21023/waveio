@@ -1,6 +1,6 @@
 package io.wavejava.wave.netty;
 
-import io.wavejava.wave.api.server.Http2Config;
+import io.wavejava.wave.api.http.Http2Config;
 import io.wavejava.wave.api.server.ServerLimits;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;

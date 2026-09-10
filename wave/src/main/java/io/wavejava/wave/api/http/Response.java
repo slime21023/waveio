@@ -1,8 +1,5 @@
 package io.wavejava.wave.api.http;
 
-import io.wavejava.wave.api.render.Rendered;
-import io.wavejava.wave.api.websocket.WebSocket;
-import io.wavejava.wave.internal.http.InternalResponse;
 import java.nio.ByteBuffer;
 import java.util.concurrent.Flow;
 
@@ -10,15 +7,13 @@ import java.util.concurrent.Flow;
  * Mutable response controls for one request invocation.
  *
  * <p>The response payload is intentionally not part of the public HTTP model. Applications choose
- * a writer, while the transport reads the committed representation through an internal boundary.</p>
+ * a writer, while the transport reads the committed representation through an internal boundary.
+ * Wave supplies the sole supported implementation; applications must use this contract rather than
+ * subclassing it.</p>
  */
-public abstract sealed class Response permits InternalResponse {
+public abstract class Response {
+    /** For Wave's implementation only; custom response implementations are unsupported. */
     protected Response() {
-    }
-
-    /** Creates a new open response with status {@code 200}. */
-    public static Response create() {
-        return new InternalResponse();
     }
 
     public abstract ResponseState state();
@@ -45,11 +40,10 @@ public abstract sealed class Response permits InternalResponse {
 
     public abstract Response stream(Flow.Publisher<ByteBuffer> publisher);
 
-    public abstract Response webSocket(WebSocket endpoint);
+    /** Selects a protocol upgrade represented by a public HTTP upgrade contract. */
+    public abstract Response upgrade(ResponseUpgrade upgrade);
 
     public abstract Response json(Object value);
-
-    public abstract Response render(Rendered rendered);
 
     public abstract Response problem(Problem problem);
 

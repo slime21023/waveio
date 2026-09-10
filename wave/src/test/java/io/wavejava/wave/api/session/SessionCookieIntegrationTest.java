@@ -32,7 +32,7 @@ class SessionCookieIntegrationTest {
         var first = manager.open(requestWithCookie(null));
         assertTrue(first.isNew());
         first.session().put("role", "reader", policy);
-        var firstResponse = Response.create();
+        var firstResponse = new io.wavejava.wave.internal.http.InternalResponse();
         first.commit(firstResponse);
         var firstCookie = responseCookie(firstResponse);
         var firstId = codec.decode(firstCookie.value(), clock.instant()).orElseThrow().sessionId();
@@ -42,7 +42,7 @@ class SessionCookieIntegrationTest {
         var resumed = manager.open(requestWithCookie(firstCookie));
         assertFalse(resumed.isNew());
         assertEquals("reader", resumed.session().attribute("role").orElseThrow());
-        var resumedResponse = Response.create();
+        var resumedResponse = new io.wavejava.wave.internal.http.InternalResponse();
         resumed.commit(resumedResponse);
         var rotatedCookie = responseCookie(resumedResponse);
         var rotatedId = codec.decode(rotatedCookie.value(), clock.instant()).orElseThrow().sessionId();
@@ -61,7 +61,7 @@ class SessionCookieIntegrationTest {
         var manager = new SessionManager(new InMemorySessionStore(4, clock), policy, codec, clock);
 
         var scope = manager.open(requestWithCookie(null));
-        var response = Response.create();
+        var response = new io.wavejava.wave.internal.http.InternalResponse();
         scope.commit(response);
         var cookie = responseCookie(response);
         var tamperedValue = "x" + cookie.value().substring(1);
@@ -84,18 +84,18 @@ class SessionCookieIntegrationTest {
         var manager = new SessionManager(store, policy, codec, clock);
 
         var scope = manager.open(requestWithCookie(null));
-        var response = Response.create();
+        var response = new io.wavejava.wave.internal.http.InternalResponse();
         scope.commit(response);
         var issued = responseCookie(response);
         var id = codec.decode(issued.value(), clock.instant()).orElseThrow().sessionId();
         var resumed = manager.open(requestWithCookie(issued));
-        var clearResponse = Response.create();
+        var clearResponse = new io.wavejava.wave.internal.http.InternalResponse();
         resumed.invalidate(clearResponse);
         assertTrue(store.find(id).isEmpty());
         assertEquals(Duration.ZERO, responseCookie(clearResponse).maxAge().orElseThrow());
 
         var tooLate = manager.open(requestWithCookie(null));
-        var committed = Response.create().text("already committed");
+        var committed = new io.wavejava.wave.internal.http.InternalResponse().text("already committed");
         assertThrows(IllegalStateException.class, () -> tooLate.commit(committed));
     }
 

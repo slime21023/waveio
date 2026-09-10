@@ -28,7 +28,7 @@ class FlowBridgeSlowConsumerTest {
     void rejectsCompletionBeforeSubscriptionInsteadOfLeavingTheHttpResponseSlotOpen() {
         var contextCapture = new ContextCapture();
         Flow.Publisher<ByteBuffer> invalidPublisher = target -> target.onComplete();
-        var response = Response.create().stream(invalidPublisher);
+        var response = new io.wavejava.wave.internal.http.InternalResponse().stream(invalidPublisher);
         var prepared = PreparedResponse.render(response, HttpVersion.HTTP_1_1, "GET", true);
         var terminal = new AtomicBoolean();
         var failure = new AtomicReference<String>();
@@ -67,7 +67,7 @@ class FlowBridgeSlowConsumerTest {
         var heldWrites = new HeldContentWrites();
         var contextCapture = new ContextCapture();
         var publisher = new DemandProbe();
-        var response = Response.create().stream(publisher);
+        var response = new io.wavejava.wave.internal.http.InternalResponse().stream(publisher);
         var prepared = PreparedResponse.render(response, HttpVersion.HTTP_1_1, "GET", true);
         var terminal = new AtomicBoolean();
 

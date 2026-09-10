@@ -23,7 +23,7 @@ class WebSocketWireIntegrationTest {
     void fragmentedTextAndInterleavedPingPreserveApplicationMessageAndControlProgress() throws Exception {
         var received = new AtomicReference<String>();
         var delivered = new CountDownLatch(1);
-        var app = Wave.app().routes(routes -> routes.websocket("/fragment", session ->
+        var app = Wave.app().routes(routes -> routes.get("/fragment", io.wavejava.wave.api.websocket.WebSocket.handler( session ->
                 session.inbound().subscribe(new Flow.Subscriber<>() {
                     @Override
                     public void onSubscribe(Flow.Subscription subscription) {
@@ -47,7 +47,7 @@ class WebSocketWireIntegrationTest {
                     public void onComplete() {
                         // The raw client performs the normal close after assertions.
                     }
-                }))).build();
+                })))).build();
 
         try (var server = Wave.server(app).listen(0).start();
                 var client = TestWebSocketClient.connect(uri(server.port(), "/fragment"))) {
@@ -69,7 +69,7 @@ class WebSocketWireIntegrationTest {
     @Test
     void invalidRsvAndFrameLimitProduceDeterministicProtocolCloseCodes() throws Exception {
         var endpoint = WebSocket.withLimits(session -> { }, new WebSocketLimits(4, 8, 32, Duration.ofSeconds(1)));
-        var app = Wave.app().routes(routes -> routes.websocket("/limited", endpoint)).build();
+        var app = Wave.app().routes(routes -> routes.get("/limited", io.wavejava.wave.api.websocket.WebSocket.handler( endpoint))).build();
 
         try (var server = Wave.server(app).listen(0).start();
                 var invalidRsv = TestWebSocketClient.connect(uri(server.port(), "/limited"))) {

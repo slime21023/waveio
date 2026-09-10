@@ -33,17 +33,17 @@ class ResiliencePolicyTest {
         var app = Wave.app().middleware(rate).routes(routes ->
                 routes.get("/work", (request, response) -> response.text("ok"))).build();
 
-        assertEquals(200, app.handle(request("one")).status());
-        var exhausted = app.handle(request("one"));
+        assertEquals(200, io.wavejava.wave.testing.TestApplication.of(app).handle(request("one")).status());
+        var exhausted = io.wavejava.wave.testing.TestApplication.of(app).handle(request("one"));
         assertEquals(429, exhausted.status());
         assertEquals("1", exhausted.headers().first("Retry-After").orElseThrow());
         assertEquals(1, rate.activeKeys());
-        assertEquals(429, app.handle(request("two")).status(), "full key table must reject instead of retain more keys");
+        assertEquals(429, io.wavejava.wave.testing.TestApplication.of(app).handle(request("two")).status(), "full key table must reject instead of retain more keys");
 
         clock.advance(Duration.ofSeconds(1));
-        assertEquals(200, app.handle(request("one")).status());
+        assertEquals(200, io.wavejava.wave.testing.TestApplication.of(app).handle(request("one")).status());
         clock.advance(Duration.ofSeconds(2));
-        assertEquals(200, app.handle(request("two")).status(), "expired identity is reclaimed before admitting a new key");
+        assertEquals(200, io.wavejava.wave.testing.TestApplication.of(app).handle(request("two")).status(), "expired identity is reclaimed before admitting a new key");
         assertEquals(1, rate.activeKeys());
     }
 
@@ -58,10 +58,10 @@ class ResiliencePolicyTest {
             response.text("released");
         })).build();
         var first = new AtomicReference<io.wavejava.wave.api.http.Response>();
-        var worker = Thread.ofVirtual().start(() -> first.set(app.handle(Request.of(HttpMethod.GET, "/hold"))));
+        var worker = Thread.ofVirtual().start(() -> first.set(io.wavejava.wave.testing.TestApplication.of(app).handle(Request.of(HttpMethod.GET, "/hold"))));
         assertTrue(entered.await(1, TimeUnit.SECONDS));
         assertEquals(1, bulkhead.activeInvocations());
-        assertEquals(503, app.handle(Request.of(HttpMethod.GET, "/hold")).status());
+        assertEquals(503, io.wavejava.wave.testing.TestApplication.of(app).handle(Request.of(HttpMethod.GET, "/hold")).status());
         assertEquals(1, bulkhead.activeInvocations());
 
         release.countDown();
@@ -73,7 +73,7 @@ class ResiliencePolicyTest {
                 routes.get("/fail", (request, response) -> {
                     throw new IllegalStateException("application failure");
                 })).build();
-        assertEquals(500, failing.handle(Request.of(HttpMethod.GET, "/fail")).status());
+        assertEquals(500, io.wavejava.wave.testing.TestApplication.of(failing).handle(Request.of(HttpMethod.GET, "/fail")).status());
         assertEquals(0, bulkhead.activeInvocations());
     }
 
@@ -86,9 +86,9 @@ class ResiliencePolicyTest {
         var app = Wave.app().middleware(policy).routes(routes ->
                 routes.get("/work", (request, response) -> response.text("ok"))).build();
 
-        assertEquals(429, app.handle(request("four")).status());
+        assertEquals(429, io.wavejava.wave.testing.TestApplication.of(app).handle(request("four")).status());
         assertEquals(0, policy.activeKeys());
-        assertFalse(app.handle(request(" ")).headers().all("Retry-After").isEmpty());
+        assertFalse(io.wavejava.wave.testing.TestApplication.of(app).handle(request(" ")).headers().all("Retry-After").isEmpty());
     }
 
     private static Request request(String client) {

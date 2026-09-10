@@ -28,7 +28,7 @@ class WaveAppTest {
                 }))
                 .build();
 
-        var response = app.handle(Request.of(HttpMethod.GET, "/users/42"));
+        var response = io.wavejava.wave.testing.TestApplication.of(app).handle(Request.of(HttpMethod.GET, "/users/42"));
 
         assertEquals(200, response.status());
         assertEquals(List.of("first:request", "second:request", "first:route", "second:route", "handler:42",
@@ -55,7 +55,7 @@ class WaveAppTest {
                 .routes(routes -> routes.get("/", (request, response) -> response.text("unreachable")))
                 .build();
 
-        var response = app.handle(Request.of(HttpMethod.GET, "/"));
+        var response = io.wavejava.wave.testing.TestApplication.of(app).handle(Request.of(HttpMethod.GET, "/"));
 
         assertEquals(401, response.status());
         assertEquals(List.of("first:request", "first:response:SUCCESS"), events);
@@ -65,9 +65,9 @@ class WaveAppTest {
     void convertsRoutingOutcomesToResponses() {
         var app = Wave.app().routes(routes -> routes.get("/items", (request, response) -> response.text("ok"))).build();
 
-        var notFound = app.handle(Request.of(HttpMethod.GET, "/missing"));
-        var methodNotAllowed = app.handle(Request.of(HttpMethod.POST, "/items"));
-        var options = app.handle(Request.of(HttpMethod.OPTIONS, "/items"));
+        var notFound = io.wavejava.wave.testing.TestApplication.of(app).handle(Request.of(HttpMethod.GET, "/missing"));
+        var methodNotAllowed = io.wavejava.wave.testing.TestApplication.of(app).handle(Request.of(HttpMethod.POST, "/items"));
+        var options = io.wavejava.wave.testing.TestApplication.of(app).handle(Request.of(HttpMethod.OPTIONS, "/items"));
 
         assertEquals(404, notFound.status());
         assertEquals(405, methodNotAllowed.status());
@@ -85,8 +85,8 @@ class WaveAppTest {
             routes.get("/open", (request, response) -> response.status(201));
         }).build();
 
-        var missing = app.handle(Request.of(HttpMethod.GET, "/missing"));
-        var open = app.handle(Request.of(HttpMethod.GET, "/open"));
+        var missing = io.wavejava.wave.testing.TestApplication.of(app).handle(Request.of(HttpMethod.GET, "/missing"));
+        var open = io.wavejava.wave.testing.TestApplication.of(app).handle(Request.of(HttpMethod.GET, "/open"));
 
         assertEquals(404, missing.status());
         assertEquals(500, open.status());
@@ -104,7 +104,7 @@ class WaveAppTest {
                 }))
                 .build();
 
-        var response = app.handle(Request.of(HttpMethod.GET, "/"));
+        var response = io.wavejava.wave.testing.TestApplication.of(app).handle(Request.of(HttpMethod.GET, "/"));
 
         assertEquals(422, response.status());
     }

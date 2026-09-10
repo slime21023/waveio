@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.net.URI;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -90,6 +92,43 @@ class ConfigTest {
         assertTrue(failure.getMessage().contains("explicit configuration path"));
     }
 
+    @Test
+    void scalarBindingCoversNumericUriPathCharacterAndEnumInputs() {
+        var config = Config.of(ConfigSource.of("test", Map.of(
+                "number.long", "9223372036854775807",
+                "number.short", "12",
+                "number.byte", "7",
+                "number.double", "3.5",
+                "number.float", "2.5",
+                "feature.initial", "W",
+                "endpoint", "https://wave.example/api",
+                "path", "config/wave.conf",
+                "mode", "development")));
+
+        assertEquals(Long.MAX_VALUE, ConfigBinder.bind(config, "number.long", long.class));
+        assertEquals((short) 12, ConfigBinder.bind(config, "number.short", Short.class));
+        assertEquals((byte) 7, ConfigBinder.bind(config, "number.byte", byte.class));
+        assertEquals(3.5d, ConfigBinder.bind(config, "number.double", double.class));
+        assertEquals(2.5f, ConfigBinder.bind(config, "number.float", Float.class));
+        assertEquals('W', ConfigBinder.bind(config, "feature.initial", char.class));
+        assertEquals(URI.create("https://wave.example/api"), ConfigBinder.bind(config, "endpoint", URI.class));
+        assertEquals(Path.of("config/wave.conf"), ConfigBinder.bind(config, "path", Path.class));
+        assertEquals(Mode.DEVELOPMENT, ConfigBinder.bind(config, "mode", Mode.class));
+    }
+
+    @Test
+    void scalarBindingReportsInvalidAndUnsupportedInputsWithTheirSource() {
+        var config = Config.of(ConfigSource.of("test", Map.of(
+                "truth", "yes", "initial", "two", "port", "999999999999", "value", "wave")));
+
+        assertInvalidScalar(config, "truth", boolean.class);
+        assertInvalidScalar(config, "initial", char.class);
+        assertInvalidScalar(config, "port", int.class);
+        var unsupported = assertThrows(ConfigBindingException.class,
+                () -> ConfigBinder.bind(config, "value", StringBuilder.class));
+        assertTrue(unsupported.getMessage().contains("unsupported scalar type"));
+    }
+
     private record ServerSettings(int port, boolean enabled, Duration timeout, Mode mode, TlsSettings tls) {
     }
 
@@ -102,5 +141,11 @@ class ConfigTest {
     private enum Mode {
         DEVELOPMENT,
         PRODUCTION
+    }
+
+    private static void assertInvalidScalar(Config config, String path, Class<?> type) {
+        var failure = assertThrows(ConfigBindingException.class, () -> ConfigBinder.bind(config, path, type));
+        assertEquals(path, failure.path());
+        assertEquals("test", failure.provenance().orElseThrow().sourceName());
     }
 }

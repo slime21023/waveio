@@ -1,8 +1,6 @@
 package io.wavejava.wave.api.http;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.wavejava.wave.api.form.FormData;
-import io.wavejava.wave.api.form.UrlEncodedFormParser;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -17,7 +15,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class Body {
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final UrlEncodedFormParser DEFAULT_FORM_PARSER = new UrlEncodedFormParser();
 
     private final byte[] content;
     private final long maximumBytes;
@@ -93,18 +90,6 @@ public final class Body {
         } catch (IOException failure) {
             throw new IllegalArgumentException("Request body is not valid JSON for " + type.getName(), failure);
         }
-    }
-
-    /**
-     * Parses this body as a UTF-8 {@code application/x-www-form-urlencoded} form and marks it
-     * consumed.
-     *
-     * <p>This convenience method deliberately has no request-header dependency. Applications
-     * that need to validate the declared {@code Content-Type} or select a custom charset/limit
-     * must use {@link UrlEncodedFormParser} directly before any other body reader.</p>
-     */
-    public FormData form() {
-        return DEFAULT_FORM_PARSER.parse(this);
     }
 
     private byte[] take() {

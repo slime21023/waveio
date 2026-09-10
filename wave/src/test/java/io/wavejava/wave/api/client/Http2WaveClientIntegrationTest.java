@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.wavejava.wave.Wave;
 import io.wavejava.wave.api.http.HttpMethod;
 import io.wavejava.wave.api.http.MediaType;
-import io.wavejava.wave.api.server.Http2Config;
+import io.wavejava.wave.api.http.Http2Config;
 import io.wavejava.wave.api.server.TlsConfig;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -44,7 +44,7 @@ class Http2WaveClientIntegrationTest {
         var http2 = Http2Config.builder().maximumConcurrentStreams(2).build();
 
         try (var server = Wave.server(app).tls(testTls()).http2(http2).listen(0).start();
-                var client = WaveClient.builder().http2(http2).tls(testClientTls()).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().http2(http2).tls(testClientTls()).build())) {
             var response = client.execute(ClientRequest.get(
                     URI.create("https://127.0.0.1:" + server.port() + "/protocol")));
 
@@ -78,7 +78,7 @@ class Http2WaveClientIntegrationTest {
                 .build();
 
         try (var server = Wave.server(app).limits(limits).tls(testTls()).http2(http2).listen(0).start();
-                var client = WaveClient.builder().http2(http2).tls(testClientTls()).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().http2(http2).tls(testClientTls()).build())) {
             var base = "https://127.0.0.1:" + server.port();
             assertEquals("HTTP/2", client.execute(ClientRequest.get(URI.create(base + "/warmup"))).text());
 
@@ -106,10 +106,10 @@ class Http2WaveClientIntegrationTest {
                 .build();
 
         try (var server = Wave.server(app).tls(testTls()).listen(0).start();
-                var client = WaveClient.builder()
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder()
                         .http2(Http2Config.builder().mode(Http2Config.Mode.PREFER).build())
                         .tls(testClientTls())
-                        .build()) {
+                        .build())) {
             var response = client.execute(ClientRequest.get(
                     URI.create("https://127.0.0.1:" + server.port() + "/protocol")));
 
@@ -127,11 +127,11 @@ class Http2WaveClientIntegrationTest {
 
         try (var server = Wave.server(app).tls(testTls()).http2(http2).listen(0).start();
                 var proxy = ConnectProxy.start();
-                var client = WaveClient.builder()
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder()
                         .http2(http2)
                         .tls(testClientTls())
                         .proxyPolicy(ProxyPolicy.http(proxy.baseUri()))
-                        .build()) {
+                        .build())) {
             var response = client.execute(ClientRequest.get(
                     URI.create("https://127.0.0.1:" + server.port() + "/protocol")));
 
@@ -165,7 +165,7 @@ class Http2WaveClientIntegrationTest {
                 .build();
 
         try (var server = Wave.server(app).tls(testTls()).http2(http2).listen(0).start();
-                var client = WaveClient.builder().requestPool(pool).http2(http2).tls(testClientTls()).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().requestPool(pool).http2(http2).tls(testClientTls()).build())) {
             var base = "https://127.0.0.1:" + server.port();
             var inboundFailure = assertThrows(ExecutionException.class, () -> client.executeAsync(
                     ClientRequest.get(URI.create(base + "/large-response"))).toCompletableFuture().get(5, TimeUnit.SECONDS));
@@ -208,7 +208,7 @@ class Http2WaveClientIntegrationTest {
         var limits = io.wavejava.wave.api.server.ServerLimits.defaults().toBuilder().maximumConnections(1).build();
 
         try (var server = Wave.server(app).limits(limits).tls(testTls()).http2(http2).listen(0).start();
-                var client = WaveClient.builder().http2(http2).tls(testClientTls()).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().http2(http2).tls(testClientTls()).build())) {
             var cancellation = new io.wavejava.wave.api.http.CancellationToken();
             var future = client.executeAsync(ClientRequest.get(
                     URI.create("https://127.0.0.1:" + server.port() + "/hold"))
@@ -259,7 +259,7 @@ class Http2WaveClientIntegrationTest {
                 .build();
 
         try (var server = Wave.server(app).limits(limits).tls(testTls()).http2(http2).listen(0).start();
-                var client = WaveClient.builder().requestPool(pool).http2(http2).tls(testClientTls()).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().requestPool(pool).http2(http2).tls(testClientTls()).build())) {
             var base = "https://127.0.0.1:" + server.port();
             var timedOut = client.executeAsync(ClientRequest.get(URI.create(base + "/hold"))).toCompletableFuture();
             assertTrue(handlerStarted.await(5, TimeUnit.SECONDS), "server handler should start before client deadline");
@@ -310,7 +310,7 @@ class Http2WaveClientIntegrationTest {
                 .build();
 
         try (var server = Wave.server(app).limits(limits).tls(testTls()).http2(http2).listen(0).start();
-                var client = WaveClient.builder().http2(http2).tls(testClientTls()).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().http2(http2).tls(testClientTls()).build())) {
             var base = "https://127.0.0.1:" + server.port();
             var cancellation = new io.wavejava.wave.api.http.CancellationToken();
             var slow = client.executeAsync(ClientRequest.get(URI.create(base + "/slow"))

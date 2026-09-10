@@ -20,7 +20,7 @@ class WebSocketUpgradeValidationIntegrationTest {
     @Test
     void malformedUpgradeReceivesAnHttpErrorBeforeAnySessionExists() throws Exception {
         var endpointStarted = new CountDownLatch(1);
-        var app = Wave.app().routes(routes -> routes.websocket("/chat", session -> endpointStarted.countDown())).build();
+        var app = Wave.app().routes(routes -> routes.get("/chat", io.wavejava.wave.api.websocket.WebSocket.handler( session -> endpointStarted.countDown()))).build();
 
         try (var server = Wave.server(app).listen(0).start();
              var socket = socket(server.port())) {
@@ -38,7 +38,7 @@ class WebSocketUpgradeValidationIntegrationTest {
 
     @Test
     void headFallbackCannotCommitAWebSocketUpgrade() throws Exception {
-        var app = Wave.app().routes(routes -> routes.websocket("/chat", session -> { })).build();
+        var app = Wave.app().routes(routes -> routes.get("/chat", io.wavejava.wave.api.websocket.WebSocket.handler( session -> { }))).build();
 
         try (var server = Wave.server(app).listen(0).start();
              var socket = socket(server.port())) {
@@ -51,7 +51,7 @@ class WebSocketUpgradeValidationIntegrationTest {
     void pipelinedHttpInputAfterAnUpgradeRequestIsRejectedBeforeCodecTransition() throws Exception {
         var endpointStarted = new CountDownLatch(1);
         var app = Wave.app().routes(routes -> {
-            routes.websocket("/chat", session -> endpointStarted.countDown());
+            routes.get("/chat", io.wavejava.wave.api.websocket.WebSocket.handler( session -> endpointStarted.countDown()));
             routes.get("/after", (request, response) -> response.text("must not become a WebSocket frame"));
         }).build();
 
@@ -69,7 +69,7 @@ class WebSocketUpgradeValidationIntegrationTest {
     @Test
     void streamingHttpRequestModeRejectsAnUpgradeDeterministically() throws Exception {
         var endpointStarted = new CountDownLatch(1);
-        var app = Wave.app().routes(routes -> routes.websocket("/chat", session -> endpointStarted.countDown())).build();
+        var app = Wave.app().routes(routes -> routes.get("/chat", io.wavejava.wave.api.websocket.WebSocket.handler( session -> endpointStarted.countDown()))).build();
 
         try (var server = Wave.server(app).requestStreaming(true).listen(0).start();
              var socket = socket(server.port())) {

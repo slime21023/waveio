@@ -2,12 +2,10 @@ package io.wavejava.wave.netty;
 
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
-import io.wavejava.wave.RunningServer;
-import io.wavejava.wave.api.lifecycle.ServiceLifecycle;
+import io.wavejava.wave.api.server.RunningServer;
 import io.wavejava.wave.api.server.ServerTimeouts;
-import io.wavejava.wave.runtime.InvocationRuntime;
-import io.wavejava.wave.runtime.ObservabilityDispatcher;
 import io.wavejava.wave.runtime.ShutdownCoordinator;
+import io.wavejava.wave.runtime.server.ServerRuntime;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Objects;
@@ -16,34 +14,28 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 /** Internal implementation of the public running-server lifecycle. */
-final class NettyRunningServer implements RunningServer {
+final class NettyServerHandle implements RunningServer {
     private final Channel channel;
     private final EventLoopGroup boss;
     private final EventLoopGroup workers;
-    private final InvocationRuntime invocations;
     private final ConnectionLifecycleManager connections;
     private final Duration shutdownTimeout;
-    private final ServiceLifecycle services;
-    private final ObservabilityDispatcher observability;
+    private final ServerRuntime runtime;
     private final ShutdownCoordinator shutdown = new ShutdownCoordinator();
 
-    NettyRunningServer(
+    NettyServerHandle(
             Channel channel,
             EventLoopGroup boss,
             EventLoopGroup workers,
-            InvocationRuntime invocations,
             ConnectionLifecycleManager connections,
             ServerTimeouts timeouts,
-            ServiceLifecycle services,
-            ObservabilityDispatcher observability) {
+            ServerRuntime runtime) {
         this.channel = Objects.requireNonNull(channel, "channel");
         this.boss = Objects.requireNonNull(boss, "boss");
         this.workers = Objects.requireNonNull(workers, "workers");
-        this.invocations = Objects.requireNonNull(invocations, "invocations");
         this.connections = Objects.requireNonNull(connections, "connections");
         shutdownTimeout = Objects.requireNonNull(timeouts, "timeouts").shutdownTimeout();
-        this.services = Objects.requireNonNull(services, "services");
-        this.observability = Objects.requireNonNull(observability, "observability");
+        this.runtime = Objects.requireNonNull(runtime, "runtime");
     }
 
     @Override
@@ -62,7 +54,7 @@ final class NettyRunningServer implements RunningServer {
             return;
         }
         var interrupted = false;
-        RuntimeException serviceStopFailure = null;
+        RuntimeException runtimeStopFailure = null;
         var workersStopped = false;
         var budget = new ShutdownBudget(shutdownTimeout);
         try {
@@ -81,7 +73,7 @@ final class NettyRunningServer implements RunningServer {
                 interrupted |= await(connections.beginHttp2Drain(), budget);
                 // Reject and cancel any stream that did not finish before the shared deadline,
                 // while keeping the virtual-thread executor alive for transport cleanup.
-                invocations.beginShutdown();
+                runtime.beginShutdown();
                 try {
                     interrupted |= await(connections.closeActiveConnections(), budget);
                 } finally {
@@ -94,29 +86,27 @@ final class NettyRunningServer implements RunningServer {
                             0, budget.remainingNanos(), TimeUnit.NANOSECONDS);
                     interrupted |= await(workerShutdown, budget);
                     workersStopped = workerShutdown.isDone();
-                    invocations.finishShutdown();
-                    interrupted |= awaitRuntimeTermination(invocations, budget);
                 }
-                var serviceStop = awaitServiceStop(services, budget);
-                interrupted |= serviceStop.interrupted();
-                serviceStopFailure = serviceStop.failure();
             }
         } finally {
-            var groupTimeout = budget.remainingNanos();
-            var bossShutdown = boss.shutdownGracefully(0, groupTimeout, TimeUnit.NANOSECONDS);
-            interrupted |= await(bossShutdown, budget);
-            if (!workersStopped) {
-                var workersShutdown = workers.shutdownGracefully(0, budget.remainingNanos(), TimeUnit.NANOSECONDS);
-                interrupted |= await(workersShutdown, budget);
-            }
-            observability.close(Duration.ofNanos(budget.remainingNanos()));
-            shutdown.completeShutdown();
-            if (interrupted) {
-                Thread.currentThread().interrupt();
+            try {
+                var groupTimeout = budget.remainingNanos();
+                var bossShutdown = boss.shutdownGracefully(0, groupTimeout, TimeUnit.NANOSECONDS);
+                interrupted |= await(bossShutdown, budget);
+                if (!workersStopped) {
+                    var workersShutdown = workers.shutdownGracefully(0, budget.remainingNanos(), TimeUnit.NANOSECONDS);
+                    interrupted |= await(workersShutdown, budget);
+                }
+            } finally {
+                runtimeStopFailure = runtime.finishShutdown(Duration.ofNanos(budget.remainingNanos()));
+                shutdown.completeShutdown();
+                if (interrupted) {
+                    Thread.currentThread().interrupt();
+                }
             }
         }
-        if (serviceStopFailure != null) {
-            throw serviceStopFailure;
+        if (runtimeStopFailure != null) {
+            throw runtimeStopFailure;
         }
     }
 
@@ -157,69 +147,6 @@ final class NettyRunningServer implements RunningServer {
             }
         }
         return interrupted;
-    }
-
-    private static boolean awaitRuntimeTermination(InvocationRuntime runtime, ShutdownBudget budget) {
-        var interrupted = false;
-        while (!runtime.isTerminated()) {
-            var remaining = budget.remainingNanos();
-            if (remaining == 0) {
-                return interrupted;
-            }
-            try {
-                runtime.awaitTermination(Duration.ofNanos(remaining));
-                break;
-            } catch (InterruptedException ignored) {
-                interrupted = true;
-            }
-        }
-        return interrupted;
-    }
-
-    private static ServiceStopResult awaitServiceStop(ServiceLifecycle services, ShutdownBudget budget) {
-        final java.util.concurrent.CompletableFuture<Void> completion;
-        try {
-            completion = services.stop().toCompletableFuture();
-        } catch (RuntimeException failure) {
-            return new ServiceStopResult(false, failure);
-        }
-
-        var interrupted = false;
-        while (!completion.isDone()) {
-            var remaining = budget.remainingNanos();
-            if (remaining == 0) {
-                return new ServiceStopResult(interrupted,
-                        new IllegalStateException("Timed out stopping application services"));
-            }
-            try {
-                completion.get(remaining, TimeUnit.NANOSECONDS);
-                break;
-            } catch (InterruptedException ignored) {
-                interrupted = true;
-            } catch (TimeoutException ignored) {
-                return new ServiceStopResult(interrupted,
-                        new IllegalStateException("Timed out stopping application services"));
-            } catch (ExecutionException failure) {
-                return new ServiceStopResult(interrupted, asRuntimeFailure(failure.getCause()));
-            }
-        }
-        if (completion.isCompletedExceptionally()) {
-            try {
-                completion.join();
-            } catch (java.util.concurrent.CompletionException failure) {
-                return new ServiceStopResult(interrupted, asRuntimeFailure(failure.getCause()));
-            }
-        }
-        return new ServiceStopResult(interrupted, null);
-    }
-
-    private static RuntimeException asRuntimeFailure(Throwable failure) {
-        return failure instanceof RuntimeException runtimeFailure
-                ? runtimeFailure
-                : new IllegalStateException("Application service shutdown failed", failure);
-    }
-
-    private record ServiceStopResult(boolean interrupted, RuntimeException failure) {
     }
 
     /** Monotonic shared time budget spanning listener, runtime, child channels, and EventLoops. */

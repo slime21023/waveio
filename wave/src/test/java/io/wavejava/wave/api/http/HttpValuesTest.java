@@ -33,6 +33,23 @@ class HttpValuesTest {
     }
 
     @Test
+    void mediaTypeEscapesQuotedParametersAndRejectsAmbiguousSyntax() {
+        var mediaType = MediaType.parse("text/plain; title=\"hello; \\\"wave\\\"\"");
+        assertEquals("hello; \"wave\"", mediaType.parameter("title").orElseThrow());
+        assertEquals("text/plain; title=\"hello; \\\"wave\\\"\"", mediaType.toString());
+        assertEquals("UTF-8", mediaType.withCharset(java.nio.charset.StandardCharsets.UTF_8).parameter("charset").orElseThrow());
+        assertTrue(mediaType.withoutParameter("TITLE").parameters().isEmpty());
+        assertFalse(MediaType.TEXT_PLAIN.matches(MediaType.APPLICATION_JSON));
+        assertTrue(MediaType.APPLICATION_JSON.matches(MediaType.parse("*/*")));
+
+        for (var invalid : java.util.List.of("", "text", "text/", "text/plain; charset", "text/plain; a=x; A=y",
+                "text/plain; title=\"unterminated", "text/plain; title=bad value", "text/*/plain")) {
+            assertThrows(IllegalArgumentException.class, () -> MediaType.parse(invalid), invalid);
+        }
+        assertThrows(IllegalArgumentException.class, () -> MediaType.TEXT_PLAIN.withParameter("name", "bad\u0000value"));
+    }
+
+    @Test
     void cookieRendersAttributesAndRequestParsingKeepsValidPairs() {
         var cookie = Cookie.builder("session", "abc")
                 .path("/")

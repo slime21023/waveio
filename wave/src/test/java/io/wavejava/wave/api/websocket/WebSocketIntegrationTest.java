@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.wavejava.wave.Wave;
-import io.wavejava.wave.WaveApp;
+import io.wavejava.wave.api.application.WaveApp;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
@@ -29,7 +29,7 @@ class WebSocketIntegrationTest {
         var textReceived = new CountDownLatch(1);
         var endpointThread = new AtomicReference<Thread>();
         var echoed = new AtomicReference<String>();
-        var app = Wave.app().routes(routes -> routes.websocket("/chat", session -> {
+        var app = Wave.app().routes(routes -> routes.get("/chat", io.wavejava.wave.api.websocket.WebSocket.handler( session -> {
             endpointThread.set(Thread.currentThread());
             endpointStarted.countDown();
             session.inbound().subscribe(new Flow.Subscriber<>() {
@@ -53,7 +53,7 @@ class WebSocketIntegrationTest {
                     // The test drives a normal close after receiving the echo.
                 }
             });
-        })).build();
+        }))).build();
 
         try (var server = Wave.server(app).listen(0).start()) {
             var listener = new java.net.http.WebSocket.Listener() {
@@ -93,7 +93,7 @@ class WebSocketIntegrationTest {
     @Test
     void stillAnswersPingWhenOneSlowSubscriberMessageIsRetained() throws Exception {
         var pongReceived = new CountDownLatch(1);
-        var app = Wave.app().routes(routes -> routes.websocket("/control", session ->
+        var app = Wave.app().routes(routes -> routes.get("/control", io.wavejava.wave.api.websocket.WebSocket.handler( session ->
                 session.inbound().subscribe(new Flow.Subscriber<>() {
                     @Override
                     public void onSubscribe(Flow.Subscription subscription) {
@@ -114,7 +114,7 @@ class WebSocketIntegrationTest {
                     public void onComplete() {
                         // The test aborts its client after proving automatic Pong progress.
                     }
-                }))).build();
+                })))).build();
 
         try (var server = Wave.server(app).listen(0).start()) {
             var listener = new java.net.http.WebSocket.Listener() {
@@ -149,7 +149,7 @@ class WebSocketIntegrationTest {
         var inboundMessages = new AtomicInteger();
         var completed = new CountDownLatch(1);
         var failed = new AtomicReference<Throwable>();
-        var app = Wave.app().routes(routes -> routes.websocket("/peer-close", session ->
+        var app = Wave.app().routes(routes -> routes.get("/peer-close", io.wavejava.wave.api.websocket.WebSocket.handler( session ->
                 session.inbound().subscribe(new Flow.Subscriber<>() {
                     @Override
                     public void onSubscribe(Flow.Subscription subscription) {
@@ -171,7 +171,7 @@ class WebSocketIntegrationTest {
                     public void onComplete() {
                         completed.countDown();
                     }
-                }))).build();
+                })))).build();
 
         try (var server = Wave.server(app).listen(0).start()) {
             var socket = HttpClient.newHttpClient().newWebSocketBuilder()
@@ -198,7 +198,7 @@ class WebSocketIntegrationTest {
             rejection.set(failure);
             rejected.countDown();
         }), new WebSocketLimits(64, 128, 256, Duration.ofSeconds(1)));
-        var app = Wave.app().routes(routes -> routes.websocket("/limited", endpoint)).build();
+        var app = Wave.app().routes(routes -> routes.get("/limited", io.wavejava.wave.api.websocket.WebSocket.handler( endpoint))).build();
 
         try (var server = Wave.server(app).listen(0).start()) {
             var socket = HttpClient.newHttpClient().newWebSocketBuilder()
@@ -267,7 +267,7 @@ class WebSocketIntegrationTest {
         private final AtomicReference<Boolean> cancellationObserved = new AtomicReference<>();
 
         WaveApp application() {
-            return Wave.app().routes(routes -> routes.websocket("/block", session -> {
+            return Wave.app().routes(routes -> routes.get("/block", io.wavejava.wave.api.websocket.WebSocket.handler( session -> {
                 session.closed().whenComplete((ignored, failure) -> sessionClosed.countDown());
                 session.request().cancellationToken().orElseThrow().onCancellation(reason -> {
                     cancellationSignalled.countDown();
@@ -280,7 +280,7 @@ class WebSocketIntegrationTest {
                     endpointInterrupted.countDown();
                     Thread.currentThread().interrupt();
                 }
-            })).build();
+            }))).build();
         }
 
         void assertStarted() throws InterruptedException {

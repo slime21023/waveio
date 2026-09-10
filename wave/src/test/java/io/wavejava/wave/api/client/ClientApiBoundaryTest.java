@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 class ClientApiBoundaryTest {
     private static final List<Class<?>> CONTRACTS = List.of(
             WaveClient.class,
-            WaveClient.Builder.class,
+            WaveClientOptions.Builder.class,
             ClientRequest.class,
             ClientRequest.Builder.class,
             ClientResponse.class,

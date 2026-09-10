@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 class WebSocketClientApiBoundaryTest {
     private static final List<Class<?>> CONTRACTS = List.of(
             WebSocketClient.class,
-            WebSocketClient.Builder.class,
+            WebSocketClientOptions.Builder.class,
             WebSocketClientRequest.class,
             WebSocketClientRequest.Builder.class,
             WebSocketConnection.class,

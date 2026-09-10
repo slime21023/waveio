@@ -47,8 +47,8 @@ class WebSocketContractTest {
     @Test
     void routeHelperUsesTheExistingVoidHttpHandlerPipeline() {
         WebSocket endpoint = session -> { };
-        var app = Wave.app().routes(routes -> routes.websocket("/chat", endpoint)).build();
-        var response = app.handle(Request.of(HttpMethod.GET, "/chat"));
+        var app = Wave.app().routes(routes -> routes.get("/chat", io.wavejava.wave.api.websocket.WebSocket.handler( endpoint))).build();
+        var response = io.wavejava.wave.testing.TestApplication.of(app).handle(Request.of(HttpMethod.GET, "/chat"));
 
         assertTrue(response.isCommitted());
         assertEquals(endpoint, ResponseDataReader.read(response).webSocket().orElseThrow());
@@ -56,7 +56,7 @@ class WebSocketContractTest {
 
     @Test
     void responseRejectsHttpEntityHeadersForAnUpgrade() {
-        var response = Response.create().header("Content-Length", "0");
-        assertThrows(IllegalStateException.class, () -> response.webSocket(session -> { }));
+        var response = new io.wavejava.wave.internal.http.InternalResponse().header("Content-Length", "0");
+        assertThrows(IllegalStateException.class, () -> response.upgrade((WebSocket) session -> { }));
     }
 }

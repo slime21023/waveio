@@ -67,4 +67,26 @@ class ContentNegotiationResolverTest {
         assertThrows(IllegalArgumentException.class,
                 () -> resolver.resolve("application/json;q=1.1", List.of()));
     }
+
+    @Test
+    void rejectsUnsafeQuotedRangesAndUsesQualityExtensionsWithoutConstrainingOffers() {
+        assertEquals(MediaType.APPLICATION_JSON, resolver.resolve(
+                "application/json; q=0.5; version=2, text/plain; q=0.4",
+                List.of(MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN)
+        ).orElseThrow());
+        assertTrue(resolver.resolve("application/json; charset=ISO-8859-1", List.of(
+                MediaType.APPLICATION_JSON.withCharset(StandardCharsets.UTF_8))).isEmpty());
+
+        for (var invalid : List.of(
+                "application/json; q=0.1234",
+                "application/json; q=-1",
+                "text/foo*",
+                "*/json",
+                "application/**",
+                "application/json\r\nInjected: value",
+                "application/json; note=\"unterminated")) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> resolver.resolve(invalid, List.of(MediaType.APPLICATION_JSON)), invalid);
+        }
+    }
 }

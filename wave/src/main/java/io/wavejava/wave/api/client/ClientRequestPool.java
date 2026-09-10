@@ -137,7 +137,8 @@ public final class ClientRequestPool implements AutoCloseable {
         }
     }
 
-    CompletableFuture<Lease> acquire() {
+    /** Acquires one bounded internal request admission. */
+    public CompletableFuture<Lease> acquire() {
         CompletableFuture<Lease> queued = null;
         synchronized (monitor) {
             if (closed) {
@@ -317,7 +318,8 @@ public final class ClientRequestPool implements AutoCloseable {
         }
     }
 
-    static final class Lease implements AutoCloseable {
+    /** One request admission which must be closed exactly once. */
+    public static final class Lease implements AutoCloseable {
         private final ClientRequestPool owner;
         private boolean released;
 

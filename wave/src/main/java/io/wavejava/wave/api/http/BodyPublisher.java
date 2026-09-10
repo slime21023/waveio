@@ -1,4 +1,4 @@
-package io.wavejava.wave.api.stream;
+package io.wavejava.wave.api.http;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;

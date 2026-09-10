@@ -28,19 +28,30 @@ foreach ($file in $sourceFiles) {
         }
     }
 
-    # A public signature may use only exported contracts. Private implementation wiring is
-    # intentionally allowed in the three small facades; it is still checked by reflection tests.
+    # Public API and SPI never reference implementation packages, including in a signature.
     if ($file.FullName -match '\\wave\\src\\main\\java\\io\\wavejava\\wave\\api\\') {
-        $publicLines = ($text -split '\r?\n') | Where-Object { $_ -match '\bpublic\b' }
-        foreach ($line in $publicLines) {
-            if (($line -match 'io\.wavejava\.wave\.(?:internal|netty|runtime)\.|io\.netty\.') -or (($line -match '\b(?:Netty[A-Za-z]*Transport|ClientTransport|WebSocketClientTransport|CancellationBridge)\b') -and $file.Name -notin @('WaveClient.java', 'WebSocketClient.java'))) {
-                $failures.Add("internal/netty type in public signature: $($file.FullName): $line")
-            }
+        if ($text -match 'io\.wavejava\.wave\.(?:internal|netty|runtime)\.|io\.netty\.') {
+            $failures.Add("api implementation dependency: $($file.FullName)")
+        }
+    }
+    if ($file.FullName -match '\\wave\\src\\main\\java\\io\\wavejava\\wave\\spi\\') {
+        if ($text -match 'io\.wavejava\.wave\.(?:internal|netty|runtime)\.|io\.netty\.') {
+            $failures.Add("spi implementation dependency: $($file.FullName)")
         }
     }
 
     if (($file.FullName -match '\\wave\\src\\main\\java\\io\\wavejava\\wave\\api\\') -and ($file.Name -match '^(?:Netty|ClientTransport|CancellationBridge|WebSocketClientSession|WebSocketClientConfig)')) {
         $failures.Add("transport implementation must stay out of api package: $($file.FullName)")
+    }
+
+    if (($file.FullName -match '\\wave\\src\\main\\java\\io\\wavejava\\wave\\runtime\\') -and $text -match 'io\.wavejava\.wave\.netty\.|io\.netty\.') {
+        $failures.Add("runtime must not depend on Netty: $($file.FullName)")
+    }
+    if (($file.FullName -match '\\wave\\src\\main\\java\\io\\wavejava\\wave\\netty\\') -and $text -match 'io\.wavejava\.wave\.Wave\b') {
+        $failures.Add("Netty must not depend on root Wave: $($file.FullName)")
+    }
+    if (($file.FullName -notmatch '\\wave\\src\\main\\java\\io\\wavejava\\wave\\Wave\.java$|\\BuiltInWaveFactory\.java$') -and $text -match 'io\.wavejava\.wave\.internal\.bootstrap') {
+        $failures.Add("only Wave may reference the built-in factory: $($file.FullName)")
     }
 }
 
@@ -48,9 +59,24 @@ $requiredFiles = @(
     'wave\src\main\java\io\wavejava\wave\api\client\ClientRequestPool.java',
     'wave\src\main\java\io\wavejava\wave\api\client\ClientRequestPoolRejectedException.java',
     'wave\src\main\java\io\wavejava\wave\api\sse\SseResponseInfo.java',
+    'wave\src\main\java\io\wavejava\wave\api\sse\SseClientOptions.java',
+    'wave\src\main\java\io\wavejava\wave\api\application\WaveApp.java',
+    'wave\src\main\java\io\wavejava\wave\api\server\WaveServer.java',
+    'wave\src\main\java\io\wavejava\wave\api\server\RunningServer.java',
+    'wave\src\main\java\io\wavejava\wave\api\http\BodyPublisher.java',
+    'wave\src\main\java\io\wavejava\wave\api\http\Http2Config.java',
+    'wave\src\main\java\io\wavejava\wave\api\http\PublicAddress.java',
+    'wave\src\main\java\io\wavejava\wave\api\http\ResponseUpgrade.java',
     'wave\src\main\java\io\wavejava\wave\runtime\ApplicationResult.java',
     'wave\src\main\java\io\wavejava\wave\runtime\RequestDispatcher.java',
-    'wave\src\main\java\io\wavejava\wave\internal\client\BlockingResultWaiter.java',
+    'wave\src\main\java\io\wavejava\wave\runtime\client\BlockingResultWaiter.java',
+    'wave\src\main\java\io\wavejava\wave\runtime\client\ClientTransport.java',
+    'wave\src\main\java\io\wavejava\wave\runtime\server\ServerTransport.java',
+    'wave\src\main\java\io\wavejava\wave\runtime\server\ServerRuntime.java',
+    'wave\src\main\java\io\wavejava\wave\internal\bootstrap\BuiltInWaveFactory.java',
+    'wave\src\main\java\io\wavejava\wave\netty\NettyServerTransport.java',
+    'wave\src\main\java\io\wavejava\wave\netty\NettyHttp1ClientTransport.java',
+    'wave\src\main\java\io\wavejava\wave\netty\NettySseClient.java',
     'wave\src\main\java\io\wavejava\wave\internal\http\InternalResponse.java',
     'wave\src\main\java\io\wavejava\wave\internal\http\ResponseData.java',
     'wave\src\main\java\io\wavejava\wave\internal\http\ResponseDataReader.java',
@@ -66,7 +92,12 @@ $forbiddenFiles = @(
     'wave\src\main\java\io\wavejava\wave\runtime\ApplicationDispatch.java',
     'wave\src\main\java\io\wavejava\wave\runtime\ApplicationDispatcher.java',
     'wave\src\main\java\io\wavejava\wave\api\client\CompletionStageAwaiter.java',
-    'wave\src\main\java\io\wavejava\wave\api\http\ResponseBody.java'
+    'wave\src\main\java\io\wavejava\wave\api\http\ResponseBody.java',
+    'wave\src\main\java\io\wavejava\wave\api\stream\BodyPublisher.java',
+    'wave\src\main\java\io\wavejava\wave\netty\Http1Server.java',
+    'wave\src\main\java\io\wavejava\wave\netty\NettyClientTransport.java',
+    'wave\src\main\java\io\wavejava\wave\netty\WebSocketClientTransport.java',
+    'wave\src\main\java\io\wavejava\wave\netty\WebSocketClientConfig.java'
 )
 foreach ($relative in $forbiddenFiles) {
     if (Test-Path -LiteralPath (Join-Path $repoRoot $relative) -PathType Leaf) {

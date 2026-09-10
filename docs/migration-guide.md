@@ -27,6 +27,13 @@ public; applications select a response writer and do not inspect transport paylo
 (`RequestFixture`, `EmbeddedApp`, `TestHttpClient`, and `MockUpstream`) are test-source utilities,
 not production classes.
 
+`WaveApp` is now in `io.wavejava.wave.api.application`; `WaveServer` and `RunningServer` are in
+`io.wavejava.wave.api.server`; `BodyPublisher`, `Http2Config`, and `PublicAddress` are in
+`io.wavejava.wave.api.http`. Create HTTP, SSE, and WebSocket clients through `Wave.client(...)`,
+`Wave.sseClient(...)`, and `Wave.webSocketClient(...)` with their corresponding `*Options` values.
+Use `new UrlEncodedFormParser().parse(request.body())`, `rendered.writeTo(response)`, and
+`response.upgrade(webSocket)` instead of the removed convenience methods.
+
 Before 1.0, any public contract change must update the architecture decision, API manifest, and
 contract tests together. Binary compatibility is not promised until an immutable release baseline
 has been published and the compatibility profile is enabled in CI.

@@ -12,9 +12,9 @@
 核心執行模型是清楚且一致的：
 
 ```text
-Wave → WaveApp → Routes → Middleware → Handler
-                         ↓
-                 Request / Response
+Wave → internal.bootstrap.BuiltInWaveFactory
+     ├─ runtime → api / spi
+     └─ netty   → runtime / api
 ```
 
 Virtual Thread 負責 application invocation，Netty 負責 protocol/connection，所有可累積資源
@@ -39,17 +39,26 @@ surface。
 
 ### 1. API package 實際承載 Netty implementation
 
-以下四個 implementation 已移到未 export 的 `io.wavejava.wave.netty`：
+Netty implementation 現在只存在未 export 的 `io.wavejava.wave.netty`：
 
-- `netty/NettyClientTransport.java`
+- `netty/NettyHttp1ClientTransport.java`
 - `netty/NettyHttp2ClientTransport.java`
-- `netty/NettyWebSocketClientTransport.java`
-- `netty/WebSocketClientSession.java`
+- `netty/NettyWebSocketClient.java`
+- `netty/NettySseClient.java`
 
 它們維持 internal scope，故一般 consumer 不能直接呼叫；`WaveClient` 與 `WebSocketClient` 的
 public signature 也不再出現 Netty type。
 
-**結果：** 0.9-R3 已移到未 export 的 `io.wavejava.wave.netty`；沒有新增公開 transport API。
+`Wave` 透過唯一的 `BuiltInWaveFactory` 建立內建實作。runtime 只看兩個必要 port：
+`runtime.server.ServerTransport` 與 `runtime.client.ClientTransport`；這兩個 interface 是分層
+所需的最小例外，不是可插拔 transport framework。
+
+server run 的 services、virtual-thread invocation 與 observability 由
+`runtime.server.ServerRuntime` 單獨擁有；`NettyServerTransport`/handle 只管理 listener、channel、
+HTTP/2 drain 與 EventLoop，並在關閉順序中通知 runtime。這消除了 transport 與 application
+lifecycle 的雙重 ownership。
+
+**結果：** 0.9-R3、R8–R11 完成；沒有新增公開 transport API。
 
 ### 2. `ResponseBody` 把 transport state 放進 public HTTP model
 
@@ -57,8 +66,9 @@ public signature 也不再出現 Netty type。
 其實只需要 `text/json/bytes/problem/stream/webSocket` writer。`PreparedResponse` 才需要判斷
 body kind。`WEBSOCKET` 也讓一般 HTTP model 直接依賴 WebSocket model。
 
-**結果：** 0.9-R4 已將 payload union 改為未 export 的 `ResponseData`，`Response` 改為 sealed
-control surface，只保留明確 writer 與 lifecycle methods；transport 只經 `ResponseDataReader` 讀取。
+**結果：** 0.9-R4 已將 payload union 改為未 export 的 `ResponseData`，`Response` 改為不引用
+internal subclass 的 abstract control surface，只保留明確 writer、`upgrade(ResponseUpgrade)` 與 lifecycle
+methods；transport 只經 `ResponseDataReader` 讀取。
 
 ### 3. Testing fixtures 被當成 production public API
 
@@ -103,8 +113,8 @@ Extension  SPI + testing support（主要給 framework/provider 作者）
 
 - `Resource` base class、annotation route scanner、`AsyncHandler`、自有 Promise、coroutine DSL。
 - global `WaveConfig`、magic auto-registration、隱式 DI、通用 event bus。
-- 為了「未來拆 module」先建立 facade/factory/interface；只有實際有第二個 implementation
-  或 external provider 時才增加 seam。
+- 為了「未來拆 module」先建立 facade/factory/interface；唯一例外是本次已證明必要的
+  `ServerTransport`／`ClientTransport`，它們切斷 runtime 對 Netty 的反向依賴。
 
 ### 1.0 前應移除或降級的候選
 
@@ -115,7 +125,7 @@ Extension  SPI + testing support（主要給 framework/provider 作者）
 3. `api.testing` production export（已移除）。
 4. exported API package 內的 Netty implementation classes（已移出）。
 
-上述項目由 0.9-R0–R6 的靜態檢查與 contract/transport tests 保護；這仍不是 1.0 API freeze。
+上述項目由 0.9-R0–R11 的靜態檢查與 contract/transport tests 保護；這仍不是 1.0 API freeze。
 
 ## 清晰版使用規則
 

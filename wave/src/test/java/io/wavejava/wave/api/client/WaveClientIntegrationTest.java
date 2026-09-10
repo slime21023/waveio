@@ -42,7 +42,7 @@ class WaveClientIntegrationTest {
             response.text("ok");
         })).build();
 
-        try (var server = Wave.server(app).listen(0).start(); var client = WaveClient.create()) {
+        try (var server = Wave.server(app).listen(0).start(); var client = io.wavejava.wave.Wave.client()) {
             var uri = baseUri(server.port()).resolve("/reuse");
 
             assertEquals("ok", client.execute(ClientRequest.get(uri)).text());
@@ -76,7 +76,7 @@ class WaveClientIntegrationTest {
                 .build();
 
         try (var server = Wave.server(app).listen(0).start();
-                var client = WaveClient.builder().retryPolicy(retryPolicy).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().retryPolicy(retryPolicy).build())) {
             var base = baseUri(server.port());
             var recovered = client.execute(ClientRequest.get(base.resolve("/retry")));
             var unsafe = client.execute(ClientRequest.builder()
@@ -101,7 +101,7 @@ class WaveClientIntegrationTest {
         }).build();
 
         try (var server = Wave.server(app).listen(0).start();
-                var client = WaveClient.builder().redirectPolicy(RedirectPolicy.normal()).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().redirectPolicy(RedirectPolicy.normal()).build())) {
             var base = baseUri(server.port());
             var response = client.execute(ClientRequest.get(base.resolve("/from")));
 
@@ -129,10 +129,10 @@ class WaveClientIntegrationTest {
                             : MockUpstream.Response.text(200, "recovered after redirect");
                     default -> MockUpstream.Response.empty(404);
                 });
-                var client = WaveClient.builder()
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder()
                         .redirectPolicy(RedirectPolicy.normal())
                         .retryPolicy(retryPolicy)
-                        .build()) {
+                        .build())) {
             var response = client.execute(ClientRequest.get(upstream.baseUri().resolve("/from")));
 
             assertEquals(200, response.status());
@@ -165,10 +165,10 @@ class WaveClientIntegrationTest {
                     }
                     default -> MockUpstream.Response.empty(404);
                 });
-                var client = WaveClient.builder()
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder()
                         .redirectPolicy(RedirectPolicy.normal())
                         .retryPolicy(retryPolicy)
-                        .build()) {
+                        .build())) {
             var response = client.execute(ClientRequest.get(upstream.baseUri().resolve("/first")));
 
             assertEquals(503, response.status());
@@ -191,7 +191,7 @@ class WaveClientIntegrationTest {
                             302, Headers.of("Location", "http://[broken"), new byte[0]);
                     default -> MockUpstream.Response.empty(404);
                 });
-                var client = WaveClient.builder().redirectPolicy(RedirectPolicy.normal()).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().redirectPolicy(RedirectPolicy.normal()).build())) {
             assertOriginalRedirect(client, upstream.baseUri().resolve("/mailto"));
             assertOriginalRedirect(client, upstream.baseUri().resolve("/opaque-http"));
             assertOriginalRedirect(client, upstream.baseUri().resolve("/malformed"));
@@ -213,8 +213,8 @@ class WaveClientIntegrationTest {
         var token = CancellationToken.create();
 
         try (var server = Wave.server(app).listen(0).start();
-                var timedClient = WaveClient.builder().requestPool(timeoutPool).build();
-                var cancelledClient = WaveClient.builder().requestPool(cancellationPool).build()) {
+                var timedClient = io.wavejava.wave.Wave.client(WaveClientOptions.builder().requestPool(timeoutPool).build());
+                var cancelledClient = io.wavejava.wave.Wave.client(WaveClientOptions.builder().requestPool(cancellationPool).build())) {
             var base = baseUri(server.port());
             var timed = timedClient.executeAsync(ClientRequest.get(base.resolve("/timeout"))).toCompletableFuture();
             await(timeoutEntered, "timeout request did not reach upstream");
@@ -262,8 +262,8 @@ class WaveClientIntegrationTest {
         var bytePool = ClientRequestPool.builder().maximumResponseBodyBytes(32).build();
 
         try (var server = Wave.server(app).listen(0).start();
-                var admissionClient = WaveClient.builder().requestPool(admissionPool).build();
-                var byteClient = WaveClient.builder().requestPool(bytePool).build()) {
+                var admissionClient = io.wavejava.wave.Wave.client(WaveClientOptions.builder().requestPool(admissionPool).build());
+                var byteClient = io.wavejava.wave.Wave.client(WaveClientOptions.builder().requestPool(bytePool).build())) {
             var base = baseUri(server.port());
             var first = admissionClient.executeAsync(ClientRequest.get(base.resolve("/hold"))).toCompletableFuture();
             await(firstEntered, "first request did not acquire the only lease");
@@ -297,9 +297,9 @@ class WaveClientIntegrationTest {
                     return MockUpstream.Response.text(200, "forwarded");
                 });
                 var proxy = MockUpstream.forwardingProxy();
-                var client = WaveClient.builder()
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder()
                         .proxyPolicy(ProxyPolicy.http(proxy.baseUri()))
-                        .build()) {
+                        .build())) {
             var target = origin.baseUri().resolve("/proxied/item?color=blue");
             var response = client.execute(ClientRequest.builder()
                     .uri(target)
@@ -320,7 +320,7 @@ class WaveClientIntegrationTest {
     void rejectsConnectBeforeOpeningASocketOrLeasingAReusableChannel() {
         var pool = ClientRequestPool.builder().maximumConcurrentRequests(1).build();
         try (var upstream = MockUpstream.start(request -> MockUpstream.Response.text(200, "must not be reached"));
-                var client = WaveClient.builder().requestPool(pool).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().requestPool(pool).build())) {
             var exchange = client.executeAsync(ClientRequest.builder()
                     .uri(upstream.baseUri())
                     .method(HttpMethod.CONNECT)
@@ -343,7 +343,7 @@ class WaveClientIntegrationTest {
         var releasePeerClose = new CountDownLatch(1);
         var upstreamFailure = new AtomicReference<Throwable>();
         try (var upstream = new ServerSocket(0);
-                var client = WaveClient.create()) {
+                var client = io.wavejava.wave.Wave.client()) {
             Thread.ofVirtual().name("wave-client-close-delimited-upstream").start(() -> {
                 try (var socket = upstream.accept()) {
                     readHttpHeaders(socket.getInputStream());
@@ -399,7 +399,7 @@ class WaveClientIntegrationTest {
                     }
                     return MockUpstream.Response.empty(404);
                 });
-                var client = WaveClient.builder().retryPolicy(retryPolicy).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().retryPolicy(retryPolicy).build())) {
             var recovered = client.execute(ClientRequest.get(upstream.baseUri().resolve("/retry-after-disconnect")));
             assertEquals(200, recovered.status());
             assertEquals("recovered", recovered.text());
@@ -424,7 +424,7 @@ class WaveClientIntegrationTest {
                 .maximumQueuedRequests(0)
                 .requestTimeout(Duration.ofSeconds(10))
                 .build();
-        var client = WaveClient.builder().requestPool(pool).build();
+        var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().requestPool(pool).build());
 
         try (var upstream = MockUpstream.start(request -> {
             entered.countDown();
@@ -460,7 +460,7 @@ class WaveClientIntegrationTest {
         try (var upstream = MockUpstream.start(request -> request.target().equals("/disconnect")
                         ? MockUpstream.Response.disconnect()
                         : MockUpstream.Response.text(200, "next exchange"));
-                var client = WaveClient.builder().requestPool(pool).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().requestPool(pool).build())) {
             assertThrows(CompletionException.class,
                     () -> client.execute(ClientRequest.get(upstream.baseUri().resolve("/disconnect"))));
             awaitCondition(() -> pool.snapshot().leasedRequests() == 0,
@@ -490,7 +490,7 @@ class WaveClientIntegrationTest {
                 .build();
 
         try (var upstream = new ServerSocket(0);
-                var client = WaveClient.builder().requestPool(pool).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().requestPool(pool).build())) {
             Thread.ofVirtual().name("wave-client-slow-upstream").start(() -> {
                 try (var socket = upstream.accept()) {
                     socket.setSoTimeout((int) Duration.ofSeconds(5).toMillis());
@@ -548,7 +548,7 @@ class WaveClientIntegrationTest {
                 .build();
 
         try (var upstream = new ServerSocket(0);
-                var client = WaveClient.builder().requestPool(pool).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().requestPool(pool).build())) {
             Thread.ofVirtual().name("wave-client-queued-cancellation-upstream").start(() -> {
                 try (var first = upstream.accept()) {
                     first.setSoTimeout((int) Duration.ofSeconds(5).toMillis());
@@ -623,7 +623,7 @@ class WaveClientIntegrationTest {
                 .maximumQueuedRequests(0)
                 .build();
 
-        try (var client = WaveClient.builder().requestPool(pool).build()) {
+        try (var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().requestPool(pool).build())) {
             var invalid = client.executeAsync(ClientRequest.builder()
                     .uri(URI.create("http://127.0.0.1:1/setup-failure"))
                     .header("Host", "forbidden.example.test")

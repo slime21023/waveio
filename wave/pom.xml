@@ -113,6 +113,59 @@
             </properties>
         </profile>
         <profile>
+            <id>coverage</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <version>0.8.13</version>
+                        <executions>
+                            <execution>
+                                <id>prepare-coverage-agent</id>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>create-coverage-report</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>enforce-bundle-coverage</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <rule>
+                                            <element>BUNDLE</element>
+                                            <limits>
+                                                <limit>
+                                                    <counter>LINE</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>0.90</minimum>
+                                                </limit>
+                                                <limit>
+                                                    <counter>BRANCH</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>0.80</minimum>
+                                                </limit>
+                                            </limits>
+                                        </rule>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
             <!--
               This profile is deliberately opt-in until an immutable released artifact exists.
               An explicit -Pcompatibility invocation without a baseline, or any mutable/non-SemVer
@@ -183,7 +236,7 @@
                                         <classes>
                                             <regex>true</regex>
                                             <include>
-                                                <item>io\.wavejava\.wave\.(Wave|WaveApp|WaveServer|RunningServer)</item>
+                                                <item>io\.wavejava\.wave\.Wave</item>
                                                 <item>io\.wavejava\.wave\.api\..*</item>
                                                 <item>io\.wavejava\.wave\.spi\..*</item>
                                             </include>

@@ -1,7 +1,7 @@
 package io.wavejava.examples.hello;
 
 import io.wavejava.wave.Wave;
-import io.wavejava.wave.WaveApp;
+import io.wavejava.wave.api.application.WaveApp;
 import io.wavejava.wave.api.server.ServerLimits;
 import io.wavejava.wave.api.server.ServerTimeouts;
 import java.net.URI;
@@ -43,7 +43,7 @@ public final class HelloApi {
         }
     }
 
-    private static io.wavejava.wave.RunningServer server() {
+    private static io.wavejava.wave.api.server.RunningServer server() {
         return Wave.server(application())
                 .limits(ServerLimits.builder().maximumConnections(32).maximumInFlightRequests(32).build())
                 .timeouts(ServerTimeouts.builder().requestTimeout(Duration.ofSeconds(5))

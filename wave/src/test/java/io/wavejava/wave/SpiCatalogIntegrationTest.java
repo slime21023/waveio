@@ -54,8 +54,8 @@ class SpiCatalogIntegrationTest {
         }).build();
         var app = Wave.app().providers(catalog).build();
 
-        assertEquals(1, app.newServiceLifecycle().services().size());
-        assertEquals(1, app.newServiceLifecycle().services().size());
+        assertEquals(1, io.wavejava.wave.testing.TestApplication.lifecycle(app).services().size());
+        assertEquals(1, io.wavejava.wave.testing.TestApplication.lifecycle(app).services().size());
         assertEquals(2, creations.get());
     }
 

@@ -36,7 +36,7 @@ class WebFoundationIntegrationTest {
                 response.problem(Problem.of(500, "Renderer Misconfigured"));
                 return;
             }
-            response.render(renderer.render(new Greeting("wave"), RenderContext.of(request, mediaType)));
+            renderer.render(new Greeting("wave"), RenderContext.of(request, mediaType)).writeTo(response);
         })).build();
 
         try (var server = Wave.server(app).listen(0).start()) {
@@ -67,7 +67,7 @@ class WebFoundationIntegrationTest {
     @Test
     void parsesOneBoundedAggregateFormOverTheHttpAdapter() throws Exception {
         var app = Wave.app().routes(routes -> routes.post("/contact", (request, response) -> {
-            var form = request.body().form();
+            var form = new io.wavejava.wave.api.form.UrlEncodedFormParser().parse(request.body());
             response.text(form.first("name").orElseThrow() + ':' + String.join(",", form.values("tag")));
         })).build();
 

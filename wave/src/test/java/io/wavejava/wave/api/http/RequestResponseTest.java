@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.wavejava.wave.api.render.Rendered;
-import io.wavejava.wave.api.stream.BodyPublisher;
+import io.wavejava.wave.api.http.BodyPublisher;
 import io.wavejava.wave.internal.http.ResponseData;
 import io.wavejava.wave.internal.http.ResponseDataReader;
 import java.time.Instant;
@@ -17,11 +17,11 @@ import org.junit.jupiter.api.Test;
 class RequestResponseTest {
     @Test
     void responsePublicSurfaceHidesTransportPayloadState() {
-        assertTrue(Response.class.isSealed());
+        assertFalse(Response.class.isSealed());
         assertTrue(java.util.Arrays.stream(Response.class.getMethods())
                 .noneMatch(method -> method.getName().equals("body")));
-        assertEquals("io.wavejava.wave.internal.http.InternalResponse",
-                Response.class.getPermittedSubclasses()[0].getName());
+        assertTrue(java.util.Arrays.stream(Response.class.getMethods())
+                .noneMatch(method -> method.getName().equals("create")));
     }
 
     @Test
@@ -47,7 +47,7 @@ class RequestResponseTest {
 
     @Test
     void responseCommitsWriterOutputAndCannotBeChangedAfterward() {
-        var response = Response.create().status(201).header("Location", "/users/42").text("created");
+        var response = new io.wavejava.wave.internal.http.InternalResponse().status(201).header("Location", "/users/42").text("created");
 
         assertEquals(ResponseState.COMMITTED, response.state());
         assertEquals(201, response.status());
@@ -59,9 +59,9 @@ class RequestResponseTest {
 
     @Test
     void responseCommitsBoundedRenderedOutputWithSupplementalHeaders() {
-        var response = Response.create().header("Cache-Control", "private")
-                .render(Rendered.of("wave".getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                        MediaType.TEXT_PLAIN_UTF_8, Headers.of("Vary", "Accept")));
+        var response = new io.wavejava.wave.internal.http.InternalResponse().header("Cache-Control", "private");
+        Rendered.of("wave".getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                MediaType.TEXT_PLAIN_UTF_8, Headers.of("Vary", "Accept")).writeTo(response);
 
         assertEquals(ResponseState.COMMITTED, response.state());
         assertEquals("text/plain; charset=UTF-8", response.headers().first("Content-Type").orElseThrow());
@@ -95,8 +95,8 @@ class RequestResponseTest {
 
     @Test
     void problemAdoptsProblemStatusAndBodylessStatusCommits() {
-        var problemResponse = Response.create().problem(Problem.of(422, "validation_failed"));
-        var noContent = Response.create().status(204);
+        var problemResponse = new io.wavejava.wave.internal.http.InternalResponse().problem(Problem.of(422, "validation_failed"));
+        var noContent = new io.wavejava.wave.internal.http.InternalResponse().status(204);
 
         assertEquals(422, problemResponse.status());
         assertEquals(ResponseData.Kind.PROBLEM, ResponseDataReader.read(problemResponse).kind());
@@ -116,15 +116,49 @@ class RequestResponseTest {
                 .body(Body.empty())
                 .bodyPublisher(publisher));
 
-        var response = Response.create().stream(BodyPublisher.empty());
+        var response = new io.wavejava.wave.internal.http.InternalResponse().stream(BodyPublisher.empty());
 
         assertEquals(ResponseState.COMMITTED, response.state());
         assertEquals(ResponseData.Kind.STREAM, ResponseDataReader.read(response).kind());
         assertEquals("application/octet-stream", response.headers().first("Content-Type").orElseThrow());
         assertTrue(ResponseDataReader.read(response).stream().isPresent());
-        assertThrows(IllegalStateException.class, () -> Response.create()
+        assertThrows(IllegalStateException.class, () -> new io.wavejava.wave.internal.http.InternalResponse()
                 .header("Content-Length", "1")
                 .stream(BodyPublisher.empty()));
-        assertThrows(IllegalStateException.class, () -> Response.create().status(204).stream(BodyPublisher.empty()));
+        assertThrows(IllegalStateException.class, () -> new io.wavejava.wave.internal.http.InternalResponse().status(204).stream(BodyPublisher.empty()));
+    }
+
+    @Test
+    void responseRedirectHeadersAndTerminalStateTransitionsAreBounded() {
+        var response = new io.wavejava.wave.internal.http.InternalResponse()
+                .header("X-Remove", "first")
+                .addHeader("X-Remove", "second")
+                .removeHeader("X-Remove")
+                .cookie(Cookie.builder("sid", "abc").httpOnly(true).build())
+                .redirect(302, "/next");
+        assertEquals(302, response.status());
+        assertEquals("/next", response.headers().first("Location").orElseThrow());
+        assertTrue(response.headers().first("Set-Cookie").orElseThrow().contains("HttpOnly"));
+        response.complete();
+        assertEquals(ResponseState.COMPLETED, response.state());
+        assertEquals(ResponseState.COMPLETED, response.complete().state());
+        assertThrows(IllegalStateException.class, response::abort);
+
+        assertThrows(IllegalArgumentException.class, () -> new io.wavejava.wave.internal.http.InternalResponse().status(99));
+        assertThrows(IllegalArgumentException.class, () -> new io.wavejava.wave.internal.http.InternalResponse().redirect(304, "/next"));
+        assertThrows(IllegalArgumentException.class, () -> new io.wavejava.wave.internal.http.InternalResponse().redirect(302, "\r\nInjected"));
+        assertThrows(IllegalStateException.class, () -> new io.wavejava.wave.internal.http.InternalResponse().complete());
+        assertEquals(ResponseState.ABORTED, new io.wavejava.wave.internal.http.InternalResponse().abort().state());
+    }
+
+    @Test
+    void jsonAndByteWritersPreserveTheirDistinctRepresentations() {
+        var bytes = new byte[] {1, 2};
+        var binary = new io.wavejava.wave.internal.http.InternalResponse().bytes(bytes, MediaType.APPLICATION_OCTET_STREAM);
+        bytes[0] = 9;
+        assertEquals(1, ResponseDataReader.read(binary).byteContent().orElseThrow()[0]);
+        var json = new io.wavejava.wave.internal.http.InternalResponse().json(java.util.Map.of("ok", true));
+        assertEquals(ResponseData.Kind.JSON, ResponseDataReader.read(json).kind());
+        assertEquals(MediaType.APPLICATION_JSON, ResponseDataReader.read(json).mediaType());
     }
 }

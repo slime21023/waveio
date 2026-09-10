@@ -1,7 +1,7 @@
 package io.wavejava.examples.websocket;
 
 import io.wavejava.wave.Wave;
-import io.wavejava.wave.WaveApp;
+import io.wavejava.wave.api.application.WaveApp;
 import io.wavejava.wave.api.websocket.WebSocketMessage;
 import io.wavejava.wave.api.server.ServerLimits;
 import io.wavejava.wave.api.server.ServerTimeouts;
@@ -14,7 +14,7 @@ public final class WebSocketChat {
     }
 
     public static WaveApp application() {
-        return Wave.app().routes(routes -> routes.websocket("/chat", session ->
+        return Wave.app().routes(routes -> routes.get("/chat", io.wavejava.wave.api.websocket.WebSocket.handler( session ->
                 session.inbound().subscribe(new Flow.Subscriber<>() {
                     private Flow.Subscription subscription;
 
@@ -45,7 +45,7 @@ public final class WebSocketChat {
                     public void onComplete() {
                         session.close(1000, "bye");
                     }
-                }))).build();
+                })))).build();
     }
 
     public static void main(String[] args) {

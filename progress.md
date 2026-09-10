@@ -489,7 +489,7 @@
   types without aliases; client pool fields now describe concurrent requests and leased requests.
 - Moved client/WebSocket Netty implementations to unexported `io.wavejava.wave.netty`; public client
   signatures remain transport-neutral. Added `maximumPhysicalChannels` for internal channel accounting.
-- Replaced public `ResponseBody` and `Response.body()` with sealed `Response`, internal `InternalResponse`,
+- Replaced public `ResponseBody` and `Response.body()` with abstract `Response`, internal `InternalResponse`,
   `ResponseData`, and the single `ResponseDataReader` transport path.
 - Moved `RequestFixture`, `EmbeddedApp`, `TestHttpClient`, and `MockUpstream` to test source and removed
   `api.testing` export. Examples that use JDK HttpClient now declare their own module requirement.

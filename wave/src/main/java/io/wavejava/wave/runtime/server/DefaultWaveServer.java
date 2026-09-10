@@ -1,20 +1,22 @@
-package io.wavejava.wave;
+package io.wavejava.wave.runtime.server;
 
-import io.wavejava.wave.netty.Http1Server;
-import io.wavejava.wave.api.lifecycle.ServiceLifecycle;
+import io.wavejava.wave.api.application.WaveApp;
 import io.wavejava.wave.api.health.HealthRegistry;
 import io.wavejava.wave.api.observability.Observability;
+import io.wavejava.wave.api.server.ForwardedHeaderPolicy;
+import io.wavejava.wave.api.server.RequestBodyMode;
+import io.wavejava.wave.api.server.RunningServer;
 import io.wavejava.wave.api.server.ServerLimits;
 import io.wavejava.wave.api.server.ServerTimeouts;
 import io.wavejava.wave.api.server.TlsConfig;
-import io.wavejava.wave.api.server.RequestBodyMode;
-import io.wavejava.wave.api.server.ForwardedHeaderPolicy;
-import io.wavejava.wave.api.server.Http2Config;
+import io.wavejava.wave.api.server.WaveServer;
+import io.wavejava.wave.api.http.Http2Config;
 import java.util.Objects;
 
 /** Configures and starts a bounded HTTP/1.1 server for one immutable {@link WaveApp}. */
-public final class WaveServer {
+public final class DefaultWaveServer implements WaveServer {
     private final WaveApp application;
+    private final ServerTransport transport;
     private int port = -1;
     private ServerLimits limits = ServerLimits.defaults();
     private ServerTimeouts timeouts = ServerTimeouts.defaults();
@@ -27,12 +29,9 @@ public final class WaveServer {
     private RequestBodyMode requestBodyMode = RequestBodyMode.AGGREGATED;
     private boolean started;
 
-    private WaveServer(WaveApp application) {
-        this.application = application;
-    }
-
-    static WaveServer forApp(WaveApp application) {
-        return new WaveServer(application);
+    public DefaultWaveServer(WaveApp application, ServerTransport transport) {
+        this.application = Objects.requireNonNull(application, "application");
+        this.transport = Objects.requireNonNull(transport, "transport");
     }
 
     /** Selects a local port; use {@code 0} to let the operating system select an ephemeral port. */
@@ -167,15 +166,15 @@ public final class WaveServer {
         if (http2.isEnabled() && tls == null) {
             throw new IllegalStateException("HTTP/2 requires TLS/ALPN; h2c is not supported");
         }
-        var services = application.newServiceLifecycle();
+        var runtime = new ServerRuntime(application, observability);
         started = true;
         if (health != null) {
             health.markStarting();
         }
         try {
-            services.start().toCompletableFuture().join();
-            var running = Http1Server.start(
-                    application::dispatch,
+            runtime.start();
+            var running = transport.start(
+                    runtime,
                     port,
                     limits,
                     timeouts,
@@ -183,9 +182,7 @@ public final class WaveServer {
                     forwardedHeaders,
                     http2,
                     compression,
-                    requestBodyMode,
-                    services,
-                    observability);
+                    requestBodyMode);
             if (health == null) {
                 return running;
             }
@@ -195,7 +192,7 @@ public final class WaveServer {
             if (health != null) {
                 health.markFailed();
             }
-            stopServicesAfterFailedStartup(services, failure);
+            runtime.abortStartup(failure);
             throw unwrapLifecycleFailure(failure);
         }
     }
@@ -203,17 +200,6 @@ public final class WaveServer {
     private void ensureNotStarted() {
         if (started) {
             throw new IllegalStateException("WaveServer has already been started");
-        }
-    }
-
-    private static void stopServicesAfterFailedStartup(ServiceLifecycle services, RuntimeException startupFailure) {
-        if (services.state() != ServiceLifecycle.State.STARTED) {
-            return;
-        }
-        try {
-            services.stop().toCompletableFuture().join();
-        } catch (RuntimeException stopFailure) {
-            startupFailure.addSuppressed(unwrapLifecycleFailure(stopFailure));
         }
     }
 

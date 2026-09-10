@@ -29,7 +29,7 @@ public final class ProxyPolicy {
      * {@code CONNECT} tunnel and then performs TLS hostname verification and ALPN end-to-end with
      * the origin. An HTTP/1.1 fallback selected by ALPN retains the byte-client's existing HTTPS
      * proxy limitation, so applications that require a proxy tunnel must use
-     * {@link io.wavejava.wave.api.server.Http2Config.Mode#REQUIRE} until a future HTTP/1.1 tunnel
+     * {@link io.wavejava.wave.api.http.Http2Config.Mode#REQUIRE} until a future HTTP/1.1 tunnel
      * transport is added.</p>
      */
     public static ProxyPolicy http(URI endpoint) {

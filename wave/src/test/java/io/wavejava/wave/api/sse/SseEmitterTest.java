@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.wavejava.wave.api.http.CancellationToken;
@@ -75,7 +76,7 @@ class SseEmitterTest {
                 .target("/events")
                 .context(RequestContext.builder("sse-test").cancellationToken(cancellation).build())
                 .build();
-        var response = Response.create();
+        var response = new io.wavejava.wave.internal.http.InternalResponse();
         var emitter = SseEmitter.create();
 
         emitter.writeTo(request, response);
@@ -96,7 +97,7 @@ class SseEmitterTest {
                 .build();
         var emitter = SseEmitter.create();
 
-        emitter.writeTo(request, Response.create());
+        emitter.writeTo(request, new io.wavejava.wave.internal.http.InternalResponse());
         assertTrue(cancellation.cancel("client disconnected before stream subscribe"));
 
         var subscriber = new RecordingSubscriber();
@@ -119,7 +120,7 @@ class SseEmitterTest {
                 .build();
         var emitter = SseEmitter.create();
         var subscriber = new RecordingSubscriber();
-        emitter.writeTo(request, Response.create());
+        emitter.writeTo(request, new io.wavejava.wave.internal.http.InternalResponse());
         emitter.subscribe(subscriber);
 
         var cancellingThread = Thread.ofPlatform()
@@ -169,6 +170,46 @@ class SseEmitterTest {
         assertTrue(subscriber.failed.await(1, TimeUnit.SECONDS));
         assertInstanceOf(java.util.concurrent.CancellationException.class, subscriber.failure.get());
         assertEquals(0, emitter.snapshot().queuedBytes());
+    }
+
+    @Test
+    void rejectsSecondSubscriberInvalidDemandAndIncompatibleResponseContentType() throws Exception {
+        var emitter = SseEmitter.create();
+        var first = new RecordingSubscriber();
+        emitter.subscribe(first);
+        var second = new RecordingSubscriber();
+        emitter.subscribe(second);
+        assertTrue(second.failed.await(1, TimeUnit.SECONDS));
+        assertInstanceOf(IllegalStateException.class, second.failure.get());
+
+        first.request(0);
+        assertTrue(first.failed.await(1, TimeUnit.SECONDS));
+        assertInstanceOf(IllegalArgumentException.class, first.failure.get());
+        assertEquals(SseEmitter.State.FAILED, emitter.state());
+
+        var incompatible = SseEmitter.create();
+        var response = new io.wavejava.wave.internal.http.InternalResponse().header("Content-Type", "application/json");
+        assertThrows(IllegalStateException.class, () -> incompatible.writeTo(Request.of(io.wavejava.wave.api.http.HttpMethod.GET, "/events"), response));
+        assertFalse(incompatible.snapshot().subscriberAttached());
+    }
+
+    @Test
+    void completedEmitterClosesALaterSubscriberAndDoesNotOverwriteExistingCachePolicy() throws Exception {
+        var emitter = SseEmitter.create();
+        assertTrue(emitter.complete());
+        var subscriber = new RecordingSubscriber();
+        emitter.subscribe(subscriber);
+        assertTrue(subscriber.completed.await(1, TimeUnit.SECONDS));
+        assertEquals(SseEmitter.State.CLOSED, emitter.state());
+
+        var attached = SseEmitter.create();
+        var response = new io.wavejava.wave.internal.http.InternalResponse().header("Cache-Control", "private");
+        attached.writeTo(Request.of(io.wavejava.wave.api.http.HttpMethod.GET, "/events"), response);
+        assertEquals("private", response.headers().first("Cache-Control").orElseThrow());
+        assertThrows(IllegalStateException.class,
+                () -> attached.writeTo(Request.of(io.wavejava.wave.api.http.HttpMethod.GET, "/again"),
+                        new io.wavejava.wave.internal.http.InternalResponse()));
+        attached.abort();
     }
 
     private static final class RecordingSubscriber implements Flow.Subscriber<ByteBuffer> {

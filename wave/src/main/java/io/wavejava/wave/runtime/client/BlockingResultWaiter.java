@@ -1,4 +1,4 @@
-package io.wavejava.wave.internal.client;
+package io.wavejava.wave.runtime.client;
 
 import io.wavejava.wave.api.client.ClientCancelledException;
 import io.wavejava.wave.api.client.ClientTimeoutException;

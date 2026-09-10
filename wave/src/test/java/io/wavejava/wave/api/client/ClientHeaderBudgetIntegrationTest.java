@@ -16,7 +16,7 @@ class ClientHeaderBudgetIntegrationTest {
         var pool = ClientRequestPool.builder().maximumResponseHeaderBytes(32).build();
 
         try (var server = Wave.server(app).listen(0).start();
-                var client = WaveClient.builder().requestPool(pool).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().requestPool(pool).build())) {
             var failure = assertThrows(ClientLimitExceededException.class,
                     () -> client.execute(ClientRequest.get(uri(server.port(), "/bytes"))));
 
@@ -36,7 +36,7 @@ class ClientHeaderBudgetIntegrationTest {
         var pool = ClientRequestPool.builder().maximumResponseHeaders(1).build();
 
         try (var server = Wave.server(app).listen(0).start();
-                var client = WaveClient.builder().requestPool(pool).build()) {
+                var client = io.wavejava.wave.Wave.client(WaveClientOptions.builder().requestPool(pool).build())) {
             var failure = assertThrows(ClientLimitExceededException.class,
                     () -> client.execute(ClientRequest.get(uri(server.port(), "/count"))));
 

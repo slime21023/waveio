@@ -47,7 +47,7 @@ class BodyTest {
     void decodesUrlEncodedFormsExactlyOnce() {
         var body = Body.utf8("name=Ada+Lovelace&tag=java&tag=web", 64);
 
-        var form = body.form();
+        var form = new io.wavejava.wave.api.form.UrlEncodedFormParser().parse(body);
 
         assertEquals("Ada Lovelace", form.first("name").orElseThrow());
         assertEquals(java.util.List.of("java", "web"), form.values("tag"));

@@ -2,6 +2,7 @@ package io.wavejava.wave.api.render;
 
 import io.wavejava.wave.api.http.Headers;
 import io.wavejava.wave.api.http.MediaType;
+import io.wavejava.wave.api.http.Response;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
@@ -64,6 +65,13 @@ public final class Rendered {
     /** Returns immutable supplemental response headers. */
     public Headers headers() {
         return headers;
+    }
+
+    /** Writes this complete bounded representation to an open response. */
+    public Response writeTo(Response response) {
+        var target = Objects.requireNonNull(response, "response");
+        headers.asMap().forEach((name, values) -> values.forEach(value -> target.addHeader(name, value)));
+        return target.bytes(bytes, mediaType);
     }
 
     private static Headers validateSupplementalHeaders(Headers headers) {

@@ -56,10 +56,10 @@ class SseClientIntegrationTest {
             var events = new CopyOnWriteArrayList<SseEvent>();
             var eventThreadsAreVirtual = new AtomicBoolean();
             var eventsReceived = new CountDownLatch(2);
-            try (var client = SseClient.builder()
+            try (var client = io.wavejava.wave.Wave.sseClient(SseClientOptions.builder()
                     .initialReconnectDelay(Duration.ZERO)
                     .maximumReconnectDelay(Duration.ZERO)
-                    .build()) {
+                    .build())) {
                 var connection = client.connect(uri(upstream), new SseListener() {
                     @Override
                     public void onEvent(SseEvent event) {
@@ -89,6 +89,41 @@ class SseClientIntegrationTest {
     }
 
     @Test
+    void acceptsAConnectTimeoutBeyondNettyMillisecondRange() throws Exception {
+        try (var upstream = new ServerSocket(0)) {
+            var upstreamDone = new CountDownLatch(1);
+            Thread.startVirtualThread(() -> {
+                try (var socket = upstream.accept()) {
+                    readRequest(socket);
+                    writeResponse(socket, "data: accepted\n\n");
+                } catch (IOException ignored) {
+                    // A test assertion is allowed to close the local peer early.
+                } finally {
+                    upstreamDone.countDown();
+                }
+            });
+
+            var event = new AtomicReference<SseEvent>();
+            var received = new CountDownLatch(1);
+            try (var client = io.wavejava.wave.Wave.sseClient(SseClientOptions.builder()
+                    .connectTimeout(Duration.ofDays(30))
+                    .maximumReconnectAttempts(0)
+                    .build())) {
+                var connection = client.connect(uri(upstream), value -> {
+                    event.set(value);
+                    received.countDown();
+                });
+                assertTrue(received.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
+                        "a valid timeout larger than Netty's millisecond range must still connect");
+                connection.completion().toCompletableFuture().get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            }
+
+            assertTrue(upstreamDone.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
+            assertEquals("accepted", event.get().data().orElseThrow());
+        }
+    }
+
+    @Test
     void rejectsAnOverLimitWireLineWithoutAccumulatingAnEventBuffer() throws Exception {
         try (var upstream = new ServerSocket(0)) {
             var upstreamDone = new CountDownLatch(1);
@@ -105,7 +140,7 @@ class SseClientIntegrationTest {
 
             var failure = new AtomicReference<Throwable>();
             var failed = new CountDownLatch(1);
-            try (var client = SseClient.builder().maximumLineBytes(8).maximumReconnectAttempts(0).build()) {
+            try (var client = io.wavejava.wave.Wave.sseClient(SseClientOptions.builder().maximumLineBytes(8).maximumReconnectAttempts(0).build())) {
                 var connection = client.connect(uri(upstream), new SseListener() {
                     @Override
                     public void onEvent(SseEvent event) {
@@ -152,7 +187,7 @@ class SseClientIntegrationTest {
                 }
             });
 
-            try (var client = SseClient.create()) {
+            try (var client = io.wavejava.wave.Wave.sseClient()) {
                 var connection = client.connect(uri(upstream), new SseListener() {
                     @Override
                     public void onEvent(SseEvent event) {
@@ -210,7 +245,7 @@ class SseClientIntegrationTest {
             });
 
             var secondOpened = new CountDownLatch(1);
-            try (var client = SseClient.builder().maximumConnections(1).build()) {
+            try (var client = io.wavejava.wave.Wave.sseClient(SseClientOptions.builder().maximumConnections(1).build())) {
                 var first = client.connect(uri(upstream), event -> {
                     throw new AssertionError("silent peer must not emit an event");
                 });
@@ -266,7 +301,7 @@ class SseClientIntegrationTest {
             var event = new AtomicReference<SseEvent>();
             var received = new CountDownLatch(1);
             var closed = new CountDownLatch(1);
-            try (var client = SseClient.builder().maximumReconnectAttempts(0).build()) {
+            try (var client = io.wavejava.wave.Wave.sseClient(SseClientOptions.builder().maximumReconnectAttempts(0).build())) {
                 var connection = client.connect(uri(upstream), new SseListener() {
                     @Override
                     public void onEvent(SseEvent value) {
@@ -324,9 +359,9 @@ class SseClientIntegrationTest {
             });
 
             assertProtocolFailure(
-                    SseClient.builder().maximumHeaderBytes(160).maximumReconnectAttempts(0).build(), uri(upstream));
+                    io.wavejava.wave.Wave.sseClient(SseClientOptions.builder().maximumHeaderBytes(160).maximumReconnectAttempts(0).build()), uri(upstream));
             assertProtocolFailure(
-                    SseClient.builder().maximumHeaderCount(1).maximumReconnectAttempts(0).build(), uri(upstream));
+                    io.wavejava.wave.Wave.sseClient(SseClientOptions.builder().maximumHeaderCount(1).maximumReconnectAttempts(0).build()), uri(upstream));
 
             assertTrue(firstDone.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
             assertTrue(secondDone.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
@@ -358,10 +393,10 @@ class SseClientIntegrationTest {
             var failure = new AtomicReference<Throwable>();
             var failed = new CountDownLatch(1);
             var started = System.nanoTime();
-            try (var client = SseClient.builder()
+            try (var client = io.wavejava.wave.Wave.sseClient(SseClientOptions.builder()
                     .responseOpenTimeout(Duration.ofMillis(100))
                     .maximumReconnectAttempts(0)
-                    .build()) {
+                    .build())) {
                 var connection = client.connect(uri(upstream), failingListener(failure, failed));
                 assertTrue(failed.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
                         "a byte-at-a-time response head must still hit its absolute deadline");
@@ -409,10 +444,10 @@ class SseClientIntegrationTest {
             var events = new CopyOnWriteArrayList<SseEvent>();
             var retryDelay = new AtomicReference<Duration>();
             var twoEvents = new CountDownLatch(2);
-            try (var client = SseClient.builder()
+            try (var client = io.wavejava.wave.Wave.sseClient(SseClientOptions.builder()
                     .maximumReconnectAttempts(1)
                     .maximumReconnectDelay(Duration.ofMillis(20))
-                    .build()) {
+                    .build())) {
                 var connection = client.connect(uri(upstream), new SseListener() {
                     @Override
                     public void onEvent(SseEvent event) {
@@ -463,10 +498,10 @@ class SseClientIntegrationTest {
             var failure = new AtomicReference<Throwable>();
             var failed = new CountDownLatch(1);
             var opened = new CountDownLatch(1);
-            try (var client = SseClient.builder()
+            try (var client = io.wavejava.wave.Wave.sseClient(SseClientOptions.builder()
                     .idleTimeout(Duration.ofMillis(75))
                     .maximumReconnectAttempts(0)
-                    .build()) {
+                    .build())) {
                 var connection = client.connect(uri(upstream), new SseListener() {
                     @Override
                     public void onEvent(SseEvent event) {

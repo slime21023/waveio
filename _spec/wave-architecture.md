@@ -147,8 +147,9 @@ Extension  SPI + testing support
 這些型別的基本語意在 0.1 即受 contract test 保護；0.x 可以新增能力，但不得以未完成的
 後續能力作為 0.1 的隱性前提。
 
-0.1–0.3 的 `Body` 只有有上限的聚合讀取模式。首次呼叫 `bytes()`、`text()`、`json()` 或
-`form()` 會取得 body；後續任何讀取都必須失敗。`Flow.Publisher<ByteBuffer>` 的 request/
+0.1–0.3 的 `Body` 只有有上限的聚合讀取模式。首次呼叫 `bytes()`、`text()` 或 `json()`
+會取得 body；URL-encoded form 由明確的 `new UrlEncodedFormParser().parse(request.body())` 讀取，
+不讓 HTTP body 核心反向依賴 form API。後續任何讀取都必須失敗。`Flow.Publisher<ByteBuffer>` 的 request/
 response streaming、multipart streaming parser 與大型檔案 upload 直到 0.4 才引入，且與
 聚合模式互斥。不得以無界記憶體、背景 thread 或假串流提前提供這些能力。
 
@@ -169,30 +170,39 @@ WebSocket upgrade 的 payload representation 收在未 export 的 `internal.http
 
 wave 採單一 Maven module，但以 package-level architecture 維持單向依賴。
 
-```mermaid
-flowchart BT
-    api["api\nstable public contracts"]
-    spi["spi\ncontrolled extensions"] --> api
-    runtime["runtime\ninternal invocation engine"] --> api
-    runtime --> spi
-    netty["netty\ninternal server/client transport"] --> runtime
-    netty --> api
-    boot["Wave bootstrap"] --> netty
+```text
+Wave
+ └─ internal.bootstrap.BuiltInWaveFactory
+     ├─ runtime.*  → api.* / spi.*
+     └─ netty.*    → runtime.* / api.*
+
+api.http
+├─ routing        → http
+│  └─ middleware  → routing / http
+├─ server/client/sse/websocket → http
+└─ form           → http
 ```
 
 | 區域 | 可依賴 | 相容性 |
 |---|---|---|
-| `api.*`（含 `api.render`、`api.form`、`api.file`） | JDK 與明確公開的 SPI types；`WaveClient`、`WebSocketClient`、`Response` 僅保留 private framework wiring | 1.x 穩定公開 API |
+| 根 `Wave` | `internal.bootstrap.BuiltInWaveFactory`；不含 Netty type、pipeline 或執行邏輯 | 唯一公開組裝入口 |
+| `api.*`（含 `api.render`、`api.form`、`api.file`） | JDK、其他公開 API 與明確公開 SPI types；不可依賴 `runtime.*`、`internal.*` 或 `netty.*` | pre-1.0 公開邊界；1.0 才 freeze |
 | `spi.*` | `api.*` | 受控擴充 API，具遷移政策 |
 | `runtime.*` | `api.*`、`spi.*` | internal，不保證相容 |
 | `netty.*` | `runtime.*`、`api.*` | internal，不保證相容 |
-| `internal.*` | 任何必要內部 package | 永不公開 |
+| `internal.bootstrap` | `runtime.*` 與 `netty.*` 的唯一內建組裝位置 | 永不公開 |
+| 其他 `internal.*` | 必要內部 package | 永不公開 |
+
+`runtime.server.ServerRuntime` 是一次 server run 的 owner：它建立並停止 service lifecycle、
+virtual-thread invocation 與 observability worker。`NettyServerTransport` 只持有 listener、
+connection/channel、HTTP/2 drain 與 EventLoop；關閉時按既有順序通知 `ServerRuntime` 完成其資源
+釋放。這避免 Netty handle 成為 application lifecycle 的第二個 owner。
 
 JPMS module 名稱固定為 `io.wavejava.wave`，僅 export 根入口、`api.*` 與 `spi.*` package；
 `runtime.*`、`netty.*`、`internal.*` 不得 export。需要穩定公開的
 file/form/render 型別一律置於 `api.*`。
-ArchUnit 會驗證上述依賴方向，並限制三個 facade 的 implementation wiring 不得進入 public
-signature；`validate-naming.ps1` 也會檢查 API package 的公開宣告。0.8 起 Revapi 驗證 `api.*` 與 `spi.*` 的二進位相容性；Maven
+ArchUnit 會驗證 API slice 無循環、`api.*`／`spi.*` 不依賴 implementation、runtime 不依賴 Netty、
+Netty 不依賴根入口；`validate-naming.ps1` 也會檢查 API package 的公開宣告。0.8 起 Revapi 驗證 `api.*` 與 `spi.*` 的二進位相容性；Maven
 Enforcer 固定 Java 與依賴收斂規則。
 
 正式 release 尚未存在時，`_spec/wave-api-compatibility.md` 是 source-level 的預發布 public-surface
@@ -212,14 +222,15 @@ wave/
 │   │   ├── java/io/wavejava/wave/
 │   │   │   ├── Wave.java
 │   │   │   ├── api/
-│   │   │   │   ├── http/          # Request, Response, headers, cookies, body state
+│   │   │   │   ├── application/   # WaveApp
+│   │   │   │   ├── http/          # Request, Response, headers, cookies, Flow, HTTP/2 config
 │   │   │   │   ├── routing/       # Routes, Handler, route metadata
 │   │   │   │   ├── middleware/
 │   │   │   │   ├── render/        # Renderer, Parser, media types
 │   │   │   │   ├── form/          # bounded URL-encoded form values
 │   │   │   │   ├── file/          # bounded static/file response API
-│   │   │   │   ├── stream/        # public Flow-based streaming types
 │   │   │   │   ├── client/
+│   │   │   │   ├── server/
 │   │   │   │   ├── sse/
 │   │   │   │   ├── websocket/
 │   │   │   │   ├── session/
@@ -228,11 +239,10 @@ wave/
 │   │   │   │   ├── observability/
 │   │   │   │   ├── health/
 │   │   │   │   ├── lifecycle/
-│   │   │   │   └── testing/
 │   │   │   ├── spi/
 │   │   │   ├── runtime/
 │   │   │   ├── netty/
-│   │   │   └── internal/
+│   │   │   └── internal/bootstrap/ # BuiltInWaveFactory only
 │   │   └── resources/META-INF/services/
 │   ├── test/java/io/wavejava/wave/
 │   │   ├── unit/
@@ -348,7 +358,7 @@ Router 在啟動時將 routes 編譯為 segment tree，而非每次 request 用 
 - method、scheme、authority、path、raw query、remote address、protocol version。
 - case-insensitive headers、多值 query、cookies、path parameters。
 - `RequestContext`、deadline、`CancellationToken`、route metadata。
-- `Body`：可聚合 body 的 `bytes()`、`text()`、`json(type)`、`form()`，以及 streaming body API。
+- `Body`：可聚合 body 的 `bytes()`、`text()`、`json(type)`，以及 streaming body API；form parser 是明確 API。
 
 Body 只能讀取一次。聚合 body 與 streaming body 不可混用；第二次嘗試會丟出明確狀態錯誤。
 
@@ -367,7 +377,7 @@ response.redirect(303, "/users/42");
 response.text("ok");
 response.bytes(bytes, MediaType.APPLICATION_OCTET_STREAM);
 FileResponse.of(path).writeTo(request, response);
-response.render(rendered);
+rendered.writeTo(response);
 response.stream(publisher);
 ```
 
@@ -507,10 +517,10 @@ SSE 建構在 response stream 之上，提供 event、id、retry、comment/heart
 WebSocket 提供 text、binary、ping/pong、close、subprotocol 與以 `Flow` 表達的 inbound application data。server endpoint 維持既有 handler/route 模型：HTTP upgrade 仍經過 routing、middleware 與 virtual-thread invocation，成功寫出 `101` 後才啟動 endpoint。
 
 ```java
-routes.websocket("/chat", socket -> {
+routes.get("/chat", WebSocket.handler(socket -> {
     socket.inbound().subscribe(new ChatSubscriber(socket));
     socket.sendText("connected");
-});
+}));
 ```
 
 `WebSocketSession.inbound()` 只發布 application `TEXT`／`BINARY` 資料，以及在尚有 demand 時的一個 terminal `CLOSE` notification；transport Ping/Pong 不消耗 application demand，並由 session 自動處理。application 仍可透過 bounded `send`、`ping`、`pong`、`close` 發送 outbound message。

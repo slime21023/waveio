@@ -25,31 +25,32 @@ import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
-import io.wavejava.wave.RunningServer;
-import io.wavejava.wave.api.lifecycle.ServiceLifecycle;
-import io.wavejava.wave.api.observability.Observability;
+import io.wavejava.wave.api.server.RunningServer;
 import io.wavejava.wave.api.server.ServerLimits;
 import io.wavejava.wave.api.server.ServerTimeouts;
 import io.wavejava.wave.api.server.TlsConfig;
 import io.wavejava.wave.api.server.RequestBodyMode;
 import io.wavejava.wave.api.server.ForwardedHeaderPolicy;
-import io.wavejava.wave.api.server.Http2Config;
+import io.wavejava.wave.api.http.Http2Config;
 import io.wavejava.wave.runtime.InvocationRuntime;
-import io.wavejava.wave.runtime.RequestDispatcher;
 import io.wavejava.wave.runtime.ObservabilityDispatcher;
+import io.wavejava.wave.runtime.RequestDispatcher;
+import io.wavejava.wave.runtime.server.ServerTransport;
+import io.wavejava.wave.runtime.server.ServerRuntime;
 import java.util.Objects;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Internal Netty HTTP/1.1 listener. Netty types do not cross this package boundary. */
-public final class Http1Server {
-    private Http1Server() {
+public final class NettyServerTransport implements ServerTransport {
+    public NettyServerTransport() {
     }
 
     /** Starts a server with the selected bounded aggregate or Flow request-body transport. */
-    public static RunningServer start(
-            RequestDispatcher app,
+    @Override
+    public RunningServer start(
+            ServerRuntime runtime,
             int port,
             ServerLimits limits,
             ServerTimeouts timeouts,
@@ -57,24 +58,22 @@ public final class Http1Server {
             ForwardedHeaderPolicy forwardedHeaders,
             Http2Config http2,
             boolean compression,
-            RequestBodyMode requestBodyMode,
-            ServiceLifecycle services,
-            Observability observability) {
+            RequestBodyMode requestBodyMode) {
+        Objects.requireNonNull(runtime, "runtime");
+        var app = runtime.dispatcher();
+        var invocations = runtime.invocations();
+        var observationDispatcher = runtime.observability();
         Objects.requireNonNull(app, "app");
         Objects.requireNonNull(limits, "limits");
         Objects.requireNonNull(timeouts, "timeouts");
         Objects.requireNonNull(requestBodyMode, "requestBodyMode");
         Objects.requireNonNull(forwardedHeaders, "forwardedHeaders");
         Objects.requireNonNull(http2, "http2");
-        Objects.requireNonNull(services, "services");
-        Objects.requireNonNull(observability, "observability");
         var boss = new NioEventLoopGroup(1);
         var workers = new NioEventLoopGroup();
-        var invocations = new InvocationRuntime();
         var connections = new AtomicInteger();
         var connectionLifecycle = new ConnectionLifecycleManager();
         var inFlightRequests = new Semaphore(limits.maximumInFlightRequests(), true);
-        var observationDispatcher = new ObservabilityDispatcher(observability);
         try {
             var sslContext = tls == null ? null : TlsSupport.build(tls, http2);
             Channel channel = new ServerBootstrap()
@@ -102,22 +101,18 @@ public final class Http1Server {
                     .bind(port)
                     .syncUninterruptibly()
                     .channel();
-            return new NettyRunningServer(
+            return new NettyServerHandle(
                     channel,
                     boss,
                     workers,
-                    invocations,
                     connectionLifecycle,
                     timeouts,
-                    services,
-                    observationDispatcher);
+                    runtime);
         } catch (RuntimeException failure) {
             connectionLifecycle.stopAccepting();
             connectionLifecycle.closeActiveConnections();
-            invocations.shutdown();
             shutdown(boss);
             shutdown(workers);
-            observationDispatcher.close(java.time.Duration.ZERO);
             throw failure;
         }
     }

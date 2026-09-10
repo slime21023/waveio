@@ -36,8 +36,19 @@ jobs:
         shell: pwsh
         run: ./tools/roadmap/validate-naming.ps1
 
-      - name: Verify
-        run: bash ./mvnw -B -ntp verify
+      - name: Verify with coverage gate
+        run: bash ./mvnw -B -ntp verify -Pcoverage
+
+      - name: Validate layered coverage
+        shell: pwsh
+        run: ./tools/roadmap/validate-coverage.ps1
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wave-coverage-report
+          path: wave/target/site/jacoco
 
   transport:
     name: Transport and leak verification

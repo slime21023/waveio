@@ -1,7 +1,8 @@
 package io.wavejava.wave.api.websocket;
 
-import io.wavejava.wave.api.http.Request;
 import io.wavejava.wave.api.http.Response;
+import io.wavejava.wave.api.http.ResponseUpgrade;
+import io.wavejava.wave.api.routing.Handler;
 import java.util.List;
 import java.util.Objects;
 
@@ -11,12 +12,12 @@ import java.util.Objects;
  *
  * <p>The endpoint callback is invoked only after the HTTP upgrade response has been written. It
  * is never invoked on a transport event loop. A WebSocket endpoint is registered through
- * {@code Routes.Builder.websocket(...)} or accepted explicitly from an ordinary
- * {@code void handle(Request, Response)} handler with {@link #accept(Request, Response, WebSocket)}.
+ * {@code WebSocket.handler(...)} or accepted explicitly from an ordinary
+ * {@code void handle(Request, Response)} handler with {@link #accept(Response, WebSocket)}.
  * The original HTTP request remains available from {@link WebSocketSession#request()}.</p>
  */
 @FunctionalInterface
-public interface WebSocket {
+public interface WebSocket extends ResponseUpgrade {
     /** Handles one successfully upgraded WebSocket session. */
     void handle(WebSocketSession session) throws Exception;
 
@@ -46,10 +47,15 @@ public interface WebSocket {
      *
      * @return {@code response}, for direct handler control flow
      */
-    static Response accept(Request request, Response response, WebSocket endpoint) {
-        Objects.requireNonNull(request, "request");
+    static Response accept(Response response, WebSocket endpoint) {
         return Objects.requireNonNull(response, "response")
-                .webSocket(Objects.requireNonNull(endpoint, "endpoint"));
+                .upgrade(Objects.requireNonNull(endpoint, "endpoint"));
+    }
+
+    /** Returns a GET-route handler which accepts {@code endpoint} as a WebSocket upgrade. */
+    static Handler handler(WebSocket endpoint) {
+        var acceptedEndpoint = Objects.requireNonNull(endpoint, "endpoint");
+        return (request, response) -> accept(response, acceptedEndpoint);
     }
 
     /** Returns a view of {@code endpoint} with the supplied finite limits. */

@@ -1,4 +1,4 @@
-package io.wavejava.wave.api.server;
+package io.wavejava.wave.api.http;
 
 import java.net.URI;
 import java.net.URISyntaxException;

@@ -46,6 +46,29 @@ class Http1RequestFramingTest {
         assertFalse(Http1RequestFraming.isSafe(duplicateHost));
     }
 
+    @Test
+    void rejectsMalformedLengthTransferCodingAndHostValues() {
+        var negativeLength = request();
+        negativeLength.headers().set(HttpHeaderNames.CONTENT_LENGTH, "-1");
+        assertFalse(Http1RequestFraming.isSafe(negativeLength));
+
+        var nonNumericLength = request();
+        nonNumericLength.headers().set(HttpHeaderNames.CONTENT_LENGTH, "four");
+        assertFalse(Http1RequestFraming.isSafe(nonNumericLength));
+
+        var unsupportedTransferCoding = request();
+        unsupportedTransferCoding.headers().set(HttpHeaderNames.TRANSFER_ENCODING, "gzip");
+        assertFalse(Http1RequestFraming.isSafe(unsupportedTransferCoding));
+
+        var repeatedChunked = request();
+        repeatedChunked.headers().set(HttpHeaderNames.TRANSFER_ENCODING, "chunked, chunked");
+        assertFalse(Http1RequestFraming.isSafe(repeatedChunked));
+
+        var missingHost = request();
+        missingHost.headers().remove(HttpHeaderNames.HOST);
+        assertFalse(Http1RequestFraming.isSafe(missingHost));
+    }
+
     private static DefaultHttpRequest request() {
         var request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.POST, "/");
         request.headers().set(HttpHeaderNames.HOST, "example.test");

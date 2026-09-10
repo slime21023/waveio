@@ -1,10 +1,10 @@
 package io.wavejava.examples.streaming;
 
 import io.wavejava.wave.Wave;
-import io.wavejava.wave.WaveApp;
+import io.wavejava.wave.api.application.WaveApp;
 import io.wavejava.wave.api.server.ServerLimits;
 import io.wavejava.wave.api.server.ServerTimeouts;
-import io.wavejava.wave.api.stream.BodyPublisher;
+import io.wavejava.wave.api.http.BodyPublisher;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -36,7 +36,7 @@ public final class StreamingApi {
         }
     }
 
-    private static io.wavejava.wave.RunningServer server() {
+    private static io.wavejava.wave.api.server.RunningServer server() {
         return Wave.server(application())
                 .limits(ServerLimits.builder().maximumConnections(16).maximumInFlightRequests(16)
                         .maximumOutboundStreamBytesPerConnection(64 * 1024).build())

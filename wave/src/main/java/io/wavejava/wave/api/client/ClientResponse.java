@@ -17,7 +17,7 @@ public final class ClientResponse {
     private final URI uri;
     private final int redirectsFollowed;
 
-    ClientResponse(int status, Headers headers, byte[] body, URI uri, int redirectsFollowed) {
+    public ClientResponse(int status, Headers headers, byte[] body, URI uri, int redirectsFollowed) {
         if (status < 100 || status > 999) {
             throw new IllegalArgumentException("Invalid HTTP response status: " + status);
         }

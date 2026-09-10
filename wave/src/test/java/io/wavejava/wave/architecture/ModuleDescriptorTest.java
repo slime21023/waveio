@@ -15,6 +15,7 @@ class ModuleDescriptorTest {
     private static final String MODULE_NAME = "io.wavejava.wave";
     private static final Set<String> EXPORTED_PACKAGES = Set.of(
             "io.wavejava.wave",
+            "io.wavejava.wave.api.application",
             "io.wavejava.wave.api.client",
             "io.wavejava.wave.api.config",
             "io.wavejava.wave.api.file",
@@ -32,7 +33,6 @@ class ModuleDescriptorTest {
             "io.wavejava.wave.api.server",
             "io.wavejava.wave.api.session",
             "io.wavejava.wave.api.sse",
-            "io.wavejava.wave.api.stream",
             "io.wavejava.wave.api.websocket",
             "io.wavejava.wave.spi",
             "io.wavejava.wave.spi.lifecycle",

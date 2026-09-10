@@ -2,7 +2,6 @@ package io.wavejava.wave.api.routing;
 
 import io.wavejava.wave.api.http.HttpMethod;
 import io.wavejava.wave.api.http.Request;
-import io.wavejava.wave.api.websocket.WebSocket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -113,20 +112,6 @@ public final class Routes {
         /** Registers an OPTIONS handler that overrides automatic OPTIONS handling for its pattern. */
         public Builder options(String pattern, Handler handler) {
             return route("OPTIONS", pattern, handler);
-        }
-
-        /**
-         * Registers a WebSocket endpoint at a GET route.
-         *
-         * <p>The endpoint is represented as an upgrade response from the ordinary handler
-         * pipeline, so middleware, route metadata, path parameters, and exception mapping retain
-         * their usual semantics. The transport validates the actual HTTP upgrade only after that
-         * pipeline completes. WebSocket upgrades require aggregate HTTP request-body mode in 0.5;
-         * streaming HTTP request-body mode rejects them deterministically.</p>
-         */
-        public Builder websocket(String pattern, WebSocket endpoint) {
-            var acceptedEndpoint = Objects.requireNonNull(endpoint, "endpoint");
-            return get(pattern, (request, response) -> WebSocket.accept(request, response, acceptedEndpoint));
         }
 
         /**

@@ -61,7 +61,8 @@ public final class RedirectPolicy {
         return maximumRedirects;
     }
 
-    boolean allows(ClientRequest request, int statusCode, int redirectsFollowed) {
+    /** Returns whether this policy permits following this redirect response. */
+    public boolean allows(ClientRequest request, int statusCode, int redirectsFollowed) {
         Objects.requireNonNull(request, "request");
         if (mode == Mode.NEVER || redirectsFollowed >= maximumRedirects || !isRedirectStatus(statusCode)) {
             return false;

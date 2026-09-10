@@ -1,4 +1,4 @@
-package io.wavejava.wave.netty;
+package io.wavejava.wave.runtime.client;
 
 import io.wavejava.wave.api.http.CancellationToken;
 import io.wavejava.wave.api.http.Deadline;
@@ -18,9 +18,9 @@ import java.util.function.Consumer;
 public final class CancellationBridge implements AutoCloseable {
     /** Internal cancellation operation; it intentionally is not a {@link Future}. */
     public abstract static class CancellationHandle {
-        abstract boolean isDone();
+        public abstract boolean isDone();
 
-        abstract void requestAbort();
+        public abstract void requestAbort();
     }
 
     public record Signal(String reason, boolean timedOut) {
@@ -173,12 +173,12 @@ public final class CancellationBridge implements AutoCloseable {
         }
 
         @Override
-        boolean isDone() {
+        public boolean isDone() {
             return future.isDone();
         }
 
         @Override
-        void requestAbort() {
+        public void requestAbort() {
             future.cancel(true);
         }
 

@@ -41,10 +41,10 @@ class WebSocketClientContractTest {
 
     @Test
     void clientBuilderRequiresFiniteBudgetsAndClosesIdempotently() {
-        assertThrows(IllegalArgumentException.class, () -> WebSocketClient.builder().maximumConnections(0));
-        assertThrows(IllegalArgumentException.class, () -> WebSocketClient.builder().idleTimeout(Duration.ZERO));
+        assertThrows(IllegalArgumentException.class, () -> WebSocketClientOptions.builder().maximumConnections(0));
+        assertThrows(IllegalArgumentException.class, () -> WebSocketClientOptions.builder().idleTimeout(Duration.ZERO));
 
-        var client = WebSocketClient.builder().maximumConnections(1).build();
+        var client = io.wavejava.wave.Wave.webSocketClient(WebSocketClientOptions.builder().maximumConnections(1).build());
         assertFalse(client.isClosed());
         client.close();
         client.close();

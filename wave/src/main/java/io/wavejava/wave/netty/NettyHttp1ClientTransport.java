@@ -31,6 +31,8 @@ import io.netty.handler.ssl.SslHandler;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.wavejava.wave.api.http.Headers;
+import io.wavejava.wave.runtime.client.CancellationBridge;
+import io.wavejava.wave.runtime.client.ClientTransport;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.nio.channels.ClosedChannelException;
@@ -65,7 +67,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * {@link ClientRequestPool} shares admission only. Each {@code WaveClient} still owns an independent,
  * identically bounded physical channel cache.</p>
  */
-final class NettyClientTransport implements ClientTransport {
+public final class NettyHttp1ClientTransport implements ClientTransport {
     private static final int INITIAL_LINE_LIMIT = 8 * 1024;
     private static final int RESPONSE_CHUNK_LIMIT = 8 * 1024;
     private static final Set<String> TRANSPORT_OWNED_REQUEST_HEADERS = Set.of(
@@ -99,11 +101,11 @@ final class NettyClientTransport implements ClientTransport {
     private final CompletableFuture<Void> closeCompletion = new CompletableFuture<>();
     private boolean shutdownStarted;
 
-    NettyClientTransport(ClientRequestPool pool, ProxyPolicy proxyPolicy) {
+    NettyHttp1ClientTransport(ClientRequestPool pool, ProxyPolicy proxyPolicy) {
         this(pool, proxyPolicy, ClientTlsConfig.system());
     }
 
-    NettyClientTransport(ClientRequestPool pool, ProxyPolicy proxyPolicy, ClientTlsConfig tls) {
+    public NettyHttp1ClientTransport(ClientRequestPool pool, ProxyPolicy proxyPolicy, ClientTlsConfig tls) {
         Objects.requireNonNull(pool, "pool");
         this.proxyPolicy = Objects.requireNonNull(proxyPolicy, "proxyPolicy");
         Objects.requireNonNull(tls, "tls");
@@ -160,11 +162,6 @@ final class NettyClientTransport implements ClientTransport {
             }
         }
         return closeCompletion;
-    }
-
-    @Override
-    public void close() {
-        closeAsync().toCompletableFuture().join();
     }
 
     /** Package-private deterministic probe for the physical channel-cap contract. */
@@ -460,12 +457,12 @@ final class NettyClientTransport implements ClientTransport {
      * but its completion stage remains pending until a channel is either returned idle or closed.</p>
      */
     static final class TransportExchange extends CancellationBridge.CancellationHandle implements ClientTransport.Exchange {
-        private final NettyClientTransport owner;
+        private final NettyHttp1ClientTransport owner;
         private final CompletableFuture<ClientTransport.TransportResponse> completion = new CompletableFuture<>();
         private final AtomicBoolean abortRequested = new AtomicBoolean();
         private volatile Connection connection;
 
-        private TransportExchange(NettyClientTransport owner) {
+        private TransportExchange(NettyHttp1ClientTransport owner) {
             this.owner = owner;
         }
 
@@ -480,12 +477,12 @@ final class NettyClientTransport implements ClientTransport {
         }
 
         @Override
-        boolean isDone() {
+        public boolean isDone() {
             return completion.isDone();
         }
 
         @Override
-        void requestAbort() {
+        public void requestAbort() {
             if (completion.isDone() || !abortRequested.compareAndSet(false, true)) {
                 return;
             }

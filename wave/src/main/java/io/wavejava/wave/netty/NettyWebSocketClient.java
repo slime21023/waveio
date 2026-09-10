@@ -42,12 +42,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** Package-private owned Netty transport for bounded direct-{@code ws} client connections. */
-final class NettyWebSocketClientTransport implements WebSocketClientTransport {
+/** Owned Netty implementation for bounded direct-{@code ws} client connections. */
+public final class NettyWebSocketClient implements WebSocketClient {
     private static final int MAXIMUM_INITIAL_LINE_BYTES = 8 * 1024;
     private static final int MAXIMUM_HANDSHAKE_CONTENT_BYTES = 8 * 1024;
 
-    private final WebSocketClientConfig config;
+    private final WebSocketClientOptions config;
     private final NioEventLoopGroup group;
     private final EventLoop eventLoop;
     private final Bootstrap bootstrap;
@@ -56,7 +56,7 @@ final class NettyWebSocketClientTransport implements WebSocketClientTransport {
     private final Set<Attempt> attempts = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closing = new AtomicBoolean();
 
-    NettyWebSocketClientTransport(WebSocketClientConfig config) {
+    public NettyWebSocketClient(WebSocketClientOptions config) {
         this.config = Objects.requireNonNull(config, "config");
         group = new NioEventLoopGroup(1, new DefaultThreadFactory("wave-websocket-client-io", true));
         eventLoop = group.next();
@@ -67,6 +67,11 @@ final class NettyWebSocketClientTransport implements WebSocketClientTransport {
                 .option(ChannelOption.AUTO_READ, true);
         admissions = new Semaphore(config.maximumConnections(), true);
         callbackExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    }
+
+    @Override
+    public WebSocketClientRequest.Builder request(java.net.URI uri) {
+        return WebSocketClientRequest.builder().uri(uri);
     }
 
     @Override
@@ -92,6 +97,11 @@ final class NettyWebSocketClientTransport implements WebSocketClientTransport {
         });
         attempt.start();
         return attempt.result;
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closing.get();
     }
 
     @Override

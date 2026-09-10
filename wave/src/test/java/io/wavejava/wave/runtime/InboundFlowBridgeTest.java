@@ -231,6 +231,64 @@ class InboundFlowBridgeTest {
                 "no Flow callback may precede onSubscribe returning");
     }
 
+    @Test
+    void invalidDemandOverflowAndSecondSubscriptionHaveOneTerminalFailureEach() {
+        var listener = new RecordingListener();
+        var bridge = new InboundFlowBridge(Runnable::run, 3, listener);
+        var firstSubscription = new AtomicReference<Flow.Subscription>();
+        var firstFailure = new AtomicReference<Throwable>();
+        bridge.subscribe(new Flow.Subscriber<>() {
+            @Override public void onSubscribe(Flow.Subscription subscription) { firstSubscription.set(subscription); }
+            @Override public void onNext(ByteBuffer item) { throw new AssertionError("invalid demand must not deliver"); }
+            @Override public void onError(Throwable failure) { firstFailure.set(failure); }
+            @Override public void onComplete() { throw new AssertionError("invalid demand must fail"); }
+        });
+        firstSubscription.get().request(0);
+        assertInstanceOf(IllegalStateException.class, firstFailure.get());
+        assertEquals(1, listener.failures.get());
+        assertFalse(bridge.offer(bytes("late"), true));
+
+        var secondFailure = new AtomicReference<Throwable>();
+        bridge.subscribe(new Flow.Subscriber<>() {
+            @Override public void onSubscribe(Flow.Subscription subscription) { subscription.request(1); }
+            @Override public void onNext(ByteBuffer item) { throw new AssertionError("second subscriber cannot receive data"); }
+            @Override public void onError(Throwable failure) { secondFailure.set(failure); }
+            @Override public void onComplete() { throw new AssertionError("second subscriber must fail"); }
+        });
+        assertInstanceOf(IllegalStateException.class, secondFailure.get());
+
+        var overflowListener = new RecordingListener();
+        var overflow = new InboundFlowBridge(Runnable::run, 2, overflowListener);
+        var failure = new AtomicReference<Throwable>();
+        overflow.subscribe(new Flow.Subscriber<>() {
+            @Override public void onSubscribe(Flow.Subscription subscription) { subscription.request(1); }
+            @Override public void onNext(ByteBuffer item) { throw new AssertionError("over-limit data must not deliver"); }
+            @Override public void onError(Throwable cause) { failure.set(cause); }
+            @Override public void onComplete() { throw new AssertionError("over-limit data must fail"); }
+        });
+        assertFalse(overflow.offer(bytes("too"), true));
+        assertInstanceOf(IllegalStateException.class, failure.get());
+        assertEquals(1, overflowListener.failures.get());
+    }
+
+    @Test
+    void subscriberCancellationDropsPendingBodyAndMakesTransportReleasableAfterSourceEnds() {
+        var listener = new RecordingListener();
+        var bridge = new InboundFlowBridge(Runnable::run, 8, listener);
+        var subscription = new AtomicReference<Flow.Subscription>();
+        bridge.subscribe(new Flow.Subscriber<>() {
+            @Override public void onSubscribe(Flow.Subscription source) { subscription.set(source); }
+            @Override public void onNext(ByteBuffer item) { throw new AssertionError("cancelled subscriber must not receive data"); }
+            @Override public void onError(Throwable failure) { throw new AssertionError(failure); }
+            @Override public void onComplete() { throw new AssertionError("cancelled subscriber must not complete"); }
+        });
+
+        subscription.get().cancel();
+        assertTrue(bridge.snapshot().cancelled());
+        assertFalse(bridge.offer(bytes("late"), true));
+        assertEquals(0, listener.demands.get());
+    }
+
     private static byte[] bytes(String value) {
         return value.getBytes(StandardCharsets.UTF_8);
     }

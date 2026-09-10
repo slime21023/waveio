@@ -69,21 +69,3 @@ public interface BackoffPolicy {
         }
     }
 }
-
-/** Internal validation at the policy invocation boundary. */
-final class BackoffDelays {
-    private BackoffDelays() {
-    }
-
-    static Duration checkedDelay(BackoffPolicy policy, int retryNumber) {
-        Objects.requireNonNull(policy, "policy");
-        if (retryNumber <= 0) {
-            throw new IllegalArgumentException("retryNumber must be greater than zero: " + retryNumber);
-        }
-        var delay = Objects.requireNonNull(policy.delayBeforeRetry(retryNumber), "backoff delay");
-        if (delay.isNegative()) {
-            throw new IllegalArgumentException("backoff delay must not be negative: " + delay);
-        }
-        return delay;
-    }
-}

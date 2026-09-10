@@ -1,7 +1,6 @@
 package io.wavejava.wave.internal.http;
 
 import io.wavejava.wave.api.http.*;
-import io.wavejava.wave.api.render.Rendered;
 import io.wavejava.wave.api.websocket.WebSocket;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -134,7 +133,7 @@ public final class InternalResponse extends Response {
      * middleware and routing complete. An invalid wire upgrade therefore becomes an HTTP error,
      * never a partially initialized WebSocket session.</p>
      */
-    public synchronized Response webSocket(WebSocket endpoint) {
+    public synchronized Response upgrade(ResponseUpgrade upgrade) {
         ensureOpen();
         if (status != 200) {
             throw new IllegalStateException("A WebSocket upgrade must use the default response status");
@@ -142,7 +141,10 @@ public final class InternalResponse extends Response {
         if (headers.contains("Content-Length") || headers.contains("Transfer-Encoding")) {
             throw new IllegalStateException("A WebSocket upgrade must not declare an HTTP response body");
         }
-        body = ResponseData.webSocket(Objects.requireNonNull(endpoint, "endpoint"));
+        if (!(Objects.requireNonNull(upgrade, "upgrade") instanceof WebSocket endpoint)) {
+            throw new IllegalArgumentException("Unsupported response upgrade: " + upgrade.getClass().getName());
+        }
+        body = ResponseData.webSocket(endpoint);
         commitInternal();
         return this;
     }
@@ -150,23 +152,6 @@ public final class InternalResponse extends Response {
     /** Sets a logical JSON value and commits the response. */
     public synchronized Response json(Object value) {
         return write(ResponseData.json(value), false);
-    }
-
-    /**
-     * Writes a bounded renderer result and commits this response.
-     *
-     * <p>Supplemental renderer headers are appended before the representation's authoritative
-     * {@code Content-Type} and {@code Content-Length} are set. {@link Rendered} rejects those two
-     * headers in its supplemental set, so response commitment has exactly one body metadata
-     * source.</p>
-     */
-    public synchronized Response render(Rendered rendered) {
-        ensureOpen();
-        var value = Objects.requireNonNull(rendered, "rendered");
-        var combinedHeaders = headers.toBuilder();
-        value.headers().asMap().forEach((name, values) -> values.forEach(item -> combinedHeaders.add(name, item)));
-        headers = combinedHeaders.build();
-        return bytes(value.bytes(), value.mediaType());
     }
 
     /** Sets a problem response, adopts its status, and commits the response. */
